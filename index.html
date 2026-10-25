@@ -211,6 +211,15 @@ input[type="number"] { font: inherit; font-family: var(--font-data); width: 84px
 .cell .tag2 { position: absolute; bottom: 1px; right: 3px; font-size: 0.58rem; font-family: var(--font-ui); font-weight: 800; }
 .cell .dot { position: absolute; right: 4px; top: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); opacity: 0.55; }
 .cell .arrow { position: absolute; top: 1px; right: 4px; font-size: 0.85rem; opacity: 0.75; }
+.opt.sel { border-color: var(--primary); background: var(--soft); }
+.xbar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.xbar i { display: block; height: 100%; background: var(--primary); transition: width 0.3s; }
+.xtag { align-self: flex-start; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: var(--primary); background: var(--soft); border-radius: 999px; padding: 3px 12px; }
+.xtext { font: inherit; width: 100%; padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.xtext:disabled { opacity: 0.8; }
+.rev { border-bottom: 1px solid var(--line); padding: 6px 0; }
+.rev summary { cursor: pointer; font-size: 0.92rem; }
+.rev .revbody { padding: 8px 4px 4px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -919,6 +928,7 @@ function startIntroAnim() {
   }
   draw('Mira cómo entran y salen los elementos'); introTimer = setInterval(tick, 1300);
 }
+const isNav = a => NAV.includes(a) || a.startsWith('exam');
 const NAV = ['home', 'level', 'retry', 'next', 'free-new', 'free-algo', 'free-board', 'intro-prev', 'intro-next'];
 function selOf(a, d) {
   let q = `[data-act="${a}"]`;
@@ -969,8 +979,8 @@ function afterAct(b, a, d, src) {
   newTok.forEach(el => { if (!(flown && el.style.visibility === 'hidden')) scaleIn(el); });
 }
 function act(a, d, src) {
-  if (NAV.includes(a)) stopDemo();
-  if (!ANIM || NAV.includes(a)) return doAct(a, d);
+  if (isNav(a)) stopDemo();
+  if (!ANIM || isNav(a)) return doAct(a, d);
   const scr = ui.screen, lid = ui.lv && ui.lv.id;
   const before = { flip: snapFlip(app), fills: fillsNow(), pre: preCtx() };
   const r = doAct(a, d);
@@ -1067,6 +1077,7 @@ function renderHome() {
   const worlds = WORLDS.filter(w => !w.hidden).map(w => `<div class="panel world" style="--wc:var(${w.c})"><div class="head"><span class="badge">${w.code}</span><div><h3>${w.name}</h3><p>${w.blurb}</p></div></div>
     <div class="lvls">${worldLevels(w.id).map(l => { const p = prog[l.id]; return `<button class="lvl${p && p.done ? ' done' : ''}" data-act="level" data-id="${l.id}">${l.name}${p && p.done ? (l.guided || l.tutorial || !p.stars ? ' ✓' : ` <span class="stars">${starStr(p.stars)}</span>`) : ''}</button>`; }).join('')}</div></div>`).join('');
   return `<div class="topbar"><div class="title"><span class="kicker">Fundamentos de IA · Unidad 2</span><h1>Maestro de Búsqueda</h1></div><div class="stats"><span class="pill">${doneCount} de ${LEVELS.length} niveles</span></div></div>
+  ${examPanel()}
   ${freePanel()}
   <div class="panel"><h2>Cómo se juega</h2><div class="howto">
     <div><b>Tú eres el algoritmo</b>No ves la solución: debes sacar y meter nodos en la estructura de datos, igual que lo haría BFS, DFS o UCS.</div>
@@ -1309,8 +1320,291 @@ function renderQuiz() {
   <div class="panel card">${gv}<h3>${q.q}</h3><div class="opts">${q.o.map((t, i) => `<button class="opt${Q.picked !== null ? (i === q.a ? ' right' : i === Q.picked ? ' wrong' : '') : ''}" data-act="qpick" data-i="${i}"${Q.picked !== null ? ' disabled' : ''}>${t}</button>`).join('')}</div>
     ${Q.picked !== null ? `<div class="fb ${Q.picked === q.a ? 'ok' : 'err'}">${Q.picked === q.a ? 'Correcto. ' : 'No era esa. '}${q.why}</div><div class="btns"><button class="btn primary" data-act="qnext">${Q.i + 1 >= Q.qs.length ? 'Ver resultado' : 'Siguiente'}</button></div>` : ''}</div>`;
 }
+/* =====================================================================
+   Examen teórico aleatorio (basado en la presentación y en los 4 algoritmos)
+   ===================================================================== */
+const shuffle = a => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
+const normTxt = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9()+.,²\- ]/g, ' ').replace(/\s+/g, ' ').trim();
+const NUM_WORDS = { cero: 0, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+const TOPICS = { problemas: 'Problemas de búsqueda', estados: 'Espacios de estados', local: 'Búsqueda local (Hill Climbing)', ciega: 'Búsqueda ciega en general', bfs: 'BFS', dfs: 'DFS', ucs: 'UCS' };
+const TYPE_LAB = { mc: 'Opción múltiple', tf: 'Verdadero o falso', short: 'Respuesta corta', open: 'Pregunta abierta' };
+
+const EX_MC = [
+  ['problemas', '¿Cuál es la mejor definición de problema de búsqueda?', ['Una formalización con la que un agente calcula una secuencia ordenada de acciones para ir de una situación dada a un estado objetivo', 'Un conjunto de datos etiquetados para entrenar un modelo', 'Una función que predice un valor numérico a partir de variables', 'Un algoritmo que clasifica imágenes'], 0, 'Es la formalización conceptual y matemática de la diapositiva 6: un agente calcula una secuencia ordenada de acciones desde una situación inicial hasta un estado objetivo.'],
+  ['problemas', '¿Cuál de estos NO es un problema de búsqueda?', ['Encontrar una ruta entre dos ciudades', 'Resolver un laberinto', 'Clasificar una imagen de un gato', 'Encontrar una solución para un Sudoku'], 2, 'Clasificar una imagen no consiste en buscar una secuencia de acciones entre estados. Ruta entre ciudades, laberinto, Sudoku y ruta de un robot sí son búsqueda.'],
+  ['problemas', '¿Cuál de estas tareas NO es un problema de búsqueda?', ['Encontrar la ruta de un robot', 'Resolver un laberinto', 'Predecir el precio de una casa', 'Encontrar una ruta entre dos ciudades'], 2, 'Predecir un precio es una tarea de predicción, no una búsqueda de acciones desde un estado inicial hasta un objetivo.'],
+  ['problemas', '¿Qué tienen en común todos los problemas de búsqueda?', ['Situación inicial → alternativas → diferentes estados → objetivo', 'Todos usan redes neuronales', 'Todos requieren datos de entrenamiento', 'Todos tienen un único estado posible'], 0, 'Diapositiva 5: un problema de búsqueda tiene situación inicial, alternativas, diferentes estados y un objetivo.'],
+  ['problemas', '¿Cuál de estos elementos NO se define al formalizar un problema de búsqueda?', ['Estado inicial', 'Acciones y transiciones', 'Objetivo y costo', 'Función de activación de una neurona'], 3, 'Los seis elementos son: estado inicial, estados, acciones, transición, objetivo y costo.'],
+  ['problemas', 'En el ejemplo del robot en una cuadrícula (diapositiva 8), ¿qué son los estados?', ['Las posiciones (celdas) donde puede estar el robot', 'Solo los muros', 'Los movimientos permitidos', 'El costo de cada paso'], 0, 'Estados = posiciones. Las acciones son ↑ ↓ ← →, el objetivo es G y el costo es 1 por movimiento.'],
+  ['problemas', 'En el ejemplo del robot, ¿cuáles son las acciones?', ['↑ ↓ ← →', 'Limpiar y vaciar', 'Sumar y restar', 'Leer y escribir'], 0, 'El robot se mueve arriba, abajo, izquierda o derecha.'],
+  ['problemas', 'En la navegación GPS (Waze, Google Maps), ¿qué representa el costo?', ['El tiempo estimado en minutos', 'La ubicación GPS actual', 'Los giros en intersecciones', 'La dirección de destino'], 0, 'Diapositiva 7: estado = ubicación GPS, acciones = giros, meta = dirección de destino, costo = tiempo estimado.'],
+  ['problemas', 'En el 8-puzzle, ¿cuál es la acción disponible?', ['Deslizar la ficha vacía', 'Eliminar una ficha', 'Girar todo el tablero', 'Sumar los números'], 0, 'En el 8-puzzle la acción es deslizar la ficha vacía; el costo es el número de movimientos.'],
+  ['problemas', 'En el 8-puzzle, ¿qué se toma como costo?', ['El número de movimientos', 'La suma de los números del tablero', 'El tiempo de CPU', 'El número de fichas'], 0, 'Cada movimiento de la ficha vacía cuesta 1, así que el costo es el número de movimientos.'],
+  ['problemas', 'En el problema de la aspiradora inteligente, ¿cuál es la meta?', ['100% del área limpia', 'Llegar a la cocina', 'Gastar toda la batería', 'Encontrar un mueble'], 0, 'Diapositiva 7: meta = 100% del área limpia; costo = batería y movimientos.'],
+  ['problemas', 'En la logística de entregas (Amazon, Uber Eats), ¿qué se usa como costo?', ['La distancia o combustible total', 'Las paradas completadas', 'Visitar al siguiente cliente', 'Entregar todos los paquetes'], 0, 'Estado = paradas completadas, acción = visitar al siguiente cliente, meta = entregar todos los paquetes, costo = distancia/combustible.'],
+  ['estados', '¿Qué hace la abstracción en un problema de búsqueda?', ['Elimina detalles innecesarios y conserva lo necesario para buscar una solución', 'Agrega todos los detalles del mundo real', 'Convierte el problema en una red neuronal', 'Elimina el estado objetivo'], 0, 'Diapositiva 11: mundo real → modelo formal → espacio de búsqueda; la abstracción conserva solo lo necesario.'],
+  ['estados', '¿Qué es el espacio de estados?', ['El conjunto de todas las configuraciones posibles del problema', 'Solo los estados que ya se visitaron', 'El camino solución', 'La lista de acciones'], 0, 'Es el conjunto de todas las configuraciones posibles que puede tener el problema (diapositiva 10).'],
+  ['estados', '¿En qué representación un mismo estado puede aparecer en varios nodos?', ['En el árbol de búsqueda', 'En el grafo de estados', 'En ninguna', 'En ambas por igual'], 0, 'El árbol representa caminos: el mismo estado puede aparecer varias veces. En el grafo de estados aparece una sola vez.'],
+  ['estados', '¿Qué estructura puede contener ciclos y rutas infinitas?', ['El grafo de estados', 'El árbol de búsqueda ya generado', 'Ninguna', 'La lista de visitados'], 0, 'El grafo de estados es la estructura sobre la que se define el problema y puede tener ciclos.'],
+  ['estados', '¿Qué son las hojas de un árbol de búsqueda?', ['Nodos aún no expandidos', 'El estado inicial', 'Nodos ya visitados', 'El camino solución'], 0, 'Raíz = estado inicial; hojas = nodos aún no expandidos.'],
+  ['local', '¿Qué caracteriza a la búsqueda local?', ['Modifica iterativamente un único estado actual generando vecinos', 'Guarda todos los caminos en una cola', 'Explora siempre todo el espacio de estados', 'Necesita conocer el mapa completo'], 0, 'Diapositiva 16: algoritmos de optimización que modifican iterativamente un único estado actual con pequeños cambios.'],
+  ['local', 'En Hill Climbing, la "decisión directa" significa:', ['Se mueve a la mejor opción cercana y olvida los pasos anteriores', 'Retrocede al nodo anterior', 'Expande por niveles', 'Usa una cola de prioridad'], 0, 'Diapositiva 15: ubicación actual, exploración cercana (vecinos directos) y decisión directa.'],
+  ['local', '¿Cuál es un ejemplo de "ubicación actual" en búsqueda local según la presentación?', ['El tablero actual de ajedrez o de las N-Reinas', 'El historial de movimientos', 'El mapa completo', 'La cola de nodos'], 0, 'Diapositiva 15: la búsqueda local inicia en una posición concreta, por ejemplo el tablero actual de ajedrez o las N-Reinas.'],
+  ['local', '¿Qué es un máximo local?', ['Un pico más bajo que el mejor, donde todos los vecinos son peores', 'El mejor valor de todo el espacio', 'Una zona plana sin cambios', 'El estado inicial'], 0, 'Hill Climbing se detiene en él aunque exista un máximo global más alto.'],
+  ['local', '¿Cómo se llama una zona plana en la cima donde todos los vecinos valen lo mismo?', ['Máximo local plano', 'Máximo global', 'Terraza', 'Cresta'], 0, 'Diapositiva 17: máximo global, máximo local, máximo local plano y terraza.'],
+  ['local', '¿Qué es una terraza en el paisaje de Hill Climbing?', ['Una zona plana desde la que todavía se puede subir más', 'Un pico local', 'El máximo global', 'Un estado sin vecinos'], 0, 'Es plana, pero a diferencia del máximo local plano, desde ella todavía hay camino ascendente.'],
+  ['local', 'En el 8-puzzle con h(n) = fichas mal colocadas, ¿cuánto vale h en el estado objetivo?', ['0', '1', '8', '9'], 0, 'El objetivo no tiene fichas mal colocadas: h(n) = 0.'],
+  ['local', 'Con meta [1 2 3 / 4 5 6 / 7 8 _] y tablero [1 2 3 / _ 4 6 / 7 5 8], ¿cuánto vale h (fichas mal colocadas, sin contar el hueco)?', ['3', '2', '4', '0'], 0, 'Están mal el 4, el 5 y el 8; el 6 y el 7 ya están en su sitio. h = 3 (diapositiva 18).'],
+  ['local', '¿Qué dos soluciones se vieron cuando Hill Climbing se atasca en el 8-puzzle?', ['Reinicio aleatorio y cambiar la heurística (Manhattan)', 'Usar BFS y DFS', 'Aumentar el costo y reducir los estados', 'Borrar el estado objetivo'], 0, 'Diapositivas 28 y 29: opción 1, reinicio aleatorio; opción 2, cambiar la heurística por distancia Manhattan.'],
+  ['local', '¿Qué mide la distancia Manhattan h₂ en el 8-puzzle?', ['La suma, para cada ficha, de filas más columnas que le faltan para llegar a su lugar', 'El número de fichas mal colocadas', 'El número de movimientos realizados', 'La diagonal más corta'], 0, 'h₂ suma |fila − fila_meta| + |col − col_meta| de cada ficha.'],
+  ['local', 'En el ejercicio de la ruta de ciudades (diapositivas 31 y 32), ¿cómo se genera un vecino?', ['Intercambiando la posición de dos ciudades en la ruta', 'Quitando una ciudad', 'Agregando una ciudad nueva', 'Cambiando la distancia entre ciudades'], 0, 'Un vecino se genera intercambiando la posición de 2 ciudades en la ruta.'],
+  ['local', 'En ese mismo ejercicio, ¿qué se minimiza?', ['La distancia total de la ruta circular', 'El número de ciudades', 'El número de cruces', 'La altura'], 0, 'Se busca la ruta circular que visite todas las ciudades una vez y regrese al origen con la menor distancia total.'],
+  ['local', 'Para f(x) = −x² + 4x (diapositiva 33), ¿dónde está el máximo?', ['(2, 4)', '(4, 0)', '(0, 0)', '(1, 3)'], 0, 'f(2) = −4 + 8 = 4, y es el punto más alto de la parábola.'],
+  ['local', 'Hill Climbing es...', ['Rápido y de poca memoria, pero puede quedarse en óptimos locales', 'Siempre óptimo', 'Siempre completo', 'Un algoritmo de búsqueda ciega'], 0, 'Solo guarda el estado actual; por eso usa poca memoria, pero puede atascarse.'],
+  ['ciega', '¿Qué significa que BFS, DFS y UCS sean búsqueda ciega?', ['Exploran sin saber qué tan cerca o lejos están de la solución', 'No usan ninguna estructura de datos', 'No tienen estado inicial', 'Solo funcionan en laberintos'], 0, 'Siguen una regla de exploración fija sin información sobre la cercanía a la meta (diapositiva 34).'],
+  ['ciega', '¿Cuáles son los métodos de búsqueda ciega más comunes vistos en clase?', ['BFS, DFS y UCS', 'Hill Climbing, A* y genéticos', 'Solo BFS', 'DFS y Hill Climbing'], 0, 'Búsqueda en amplitud, en profundidad y de costo uniforme.'],
+  ['bfs', '¿Cómo explora BFS?', ['Todos los nodos de un nivel antes de pasar al siguiente', 'Lo más profundo posible antes de retroceder', 'Primero el nodo de menor costo', 'Se mueve al mejor vecino'], 0, 'Diapositiva 35: explora todos los nodos de un nivel antes de pasar al nivel de profundidad siguiente.'],
+  ['dfs', '¿Cómo explora DFS?', ['Avanza tan profundo como sea posible por una rama antes de retroceder', 'Todos los nodos de un nivel antes de pasar al siguiente', 'Primero el nodo de menor costo', 'Evalúa solo a los vecinos y olvida el camino'], 0, 'Diapositiva 36: avanza tan profundo como sea posible a lo largo de una rama antes de retroceder.'],
+  ['ucs', '¿Qué nodo explora primero UCS?', ['El de menor costo acumulado desde el estado inicial', 'El más antiguo de la cola', 'El último que entró', 'El que esté más cerca de la meta en línea recta'], 0, 'Diapositiva 42: explora primero el nodo cuyo costo acumulado g(n) es menor.'],
+  ['bfs', '¿Qué estructura de datos usa BFS?', ['Cola (FIFO)', 'Pila (LIFO)', 'Cola de prioridad', 'Ninguna'], 0, 'Sale primero el nodo que lleva más tiempo esperando.'],
+  ['dfs', '¿Qué estructura de datos usa DFS (con pila explícita)?', ['Pila (LIFO)', 'Cola (FIFO)', 'Cola de prioridad', 'Montículo máximo'], 0, 'El último en entrar es el primero en salir.'],
+  ['ucs', '¿Qué estructura de datos usa UCS?', ['Cola de prioridad', 'Pila', 'Cola simple', 'Árbol AVL'], 0, 'Se ordena por costo acumulado g(n); sale el menor.'],
+  ['ciega', 'Para el árbol 0→{1, 2}, 1→{3, 4}, 2→{5} (diapositiva 37), ¿qué salida produce DFS?', ['0, 1, 3, 4, 2, 5', '0, 1, 2, 3, 4, 5', '0, 2, 5, 1, 3, 4', '5, 4, 3, 2, 1, 0'], 0, 'DFS baja por la rama del 1 (3 y 4), luego retrocede al 2 y su hijo 5. BFS daría 0, 1, 2, 3, 4, 5.'],
+  ['bfs', 'Según GeeksforGeeks, ¿cuál es la complejidad en tiempo de BFS?', ['O(V + E)', 'O(V²)', 'O(log V)', 'O(E²)'], 0, 'Cada vértice y cada arista se procesan una vez.'],
+  ['bfs', 'Según GeeksforGeeks, ¿cuál es el espacio auxiliar de BFS?', ['O(V)', 'O(1)', 'O(E²)', 'O(log V)'], 0, 'Se necesita la cola y el arreglo de visitados.'],
+  ['bfs', '¿Cuál es una aplicación de BFS?', ['Encontrar el camino más corto en un grafo sin pesos', 'Entrenar redes neuronales', 'Ordenar números', 'Comprimir archivos'], 0, 'También sirve para detectar ciclos y es la base de Dijkstra, Kahn (orden topológico) y Prim.'],
+  ['ciega', '¿Cómo se recorre un grafo desconectado completo con BFS o DFS?', ['Se lanza el algoritmo desde cada nodo que no haya sido visitado', 'Una sola ejecución basta', 'Es imposible', 'Se cambia a Hill Climbing'], 0, 'Una sola ejecución solo alcanza su componente conexa; se comparte el arreglo de visitados.'],
+  ['ciega', '¿Por qué se usa un arreglo o conjunto de visitados en BFS y DFS?', ['Porque los ciclos podrían hacer que un nodo se procese más de una vez', 'Para ordenar los nodos', 'Para calcular heurísticas', 'Para dibujar el grafo'], 0, 'Sin él, un grafo con ciclos produciría bucles infinitos.'],
+  ['bfs', 'En el código de clase, ¿qué método saca el nodo que lleva más tiempo en la cola de BFS?', ['popleft()', 'pop()', 'heappop()', 'remove()'], 0, 'deque.popleft() saca por la izquierda (FIFO); pop() saca el último (usado en DFS).'],
+  ['dfs', 'En el DFS de clase con pila, ¿qué método saca el último elemento?', ['pop()', 'popleft()', 'heappop()', 'insert()'], 0, 'pila.pop() saca el último en entrar.'],
+  ['ucs', '¿Por qué en el UCS de clase la tupla es (costo, nodo, camino)?', ['Porque heapq ordena por el primer elemento, el costo acumulado', 'Porque Python lo exige', 'Para que el camino salga primero', 'Por estética'], 0, 'heapq compara tuplas empezando por el primer elemento.'],
+  ['ucs', '¿Cuándo se comprueba si el nodo es el objetivo en UCS?', ['Al sacarlo de la cola de prioridad', 'Al meterlo en la cola', 'Antes de empezar', 'Nunca'], 0, 'Al sacarlo se garantiza que no existe un camino más barato todavía sin explorar.'],
+  ['ucs', '¿Qué algoritmo garantiza el camino de menor costo con costos positivos?', ['UCS', 'BFS', 'DFS', 'Hill Climbing'], 0, 'UCS expande por costo acumulado creciente.'],
+  ['bfs', 'BFS garantiza encontrar el camino con...', ['El menor número de aristas', 'El menor costo siempre', 'La mayor profundidad', 'Ninguna garantía'], 0, 'BFS cuenta aristas, no costos.'],
+  ['problemas', '¿Qué temas entran al primer examen según el contenido de la unidad 2?', ['Problemas de búsqueda, espacios de búsqueda, búsqueda local y búsqueda ciega', 'Solo algoritmos genéticos', 'Solo heurísticas y A*', 'Redes neuronales'], 0, 'Diapositiva 3: heurísticas y algoritmos genéticos son del segundo examen.']
+];
+const EX_TF = [
+  ['bfs', 'BFS utiliza una pila para decidir qué nodo sale primero.', false, 'BFS usa una cola (FIFO). La pila (LIFO) es de DFS.'],
+  ['dfs', 'DFS usa una pila (o recursión), por eso avanza lo más profundo posible antes de retroceder.', true, 'El último nodo descubierto es el primero en explorarse.'],
+  ['ucs', 'UCS usa una cola de prioridad ordenada por el costo acumulado g(n).', true, 'Sale siempre el nodo de menor g.'],
+  ['ucs', 'En UCS el objetivo se comprueba al meter el nodo en la cola, no al sacarlo.', false, 'Se comprueba al sacarlo; así se garantiza que es el camino más barato.'],
+  ['bfs', 'BFS encuentra el camino con menos aristas desde el nodo inicial.', true, 'Explora por niveles, así que llega primero por el camino con menos aristas.'],
+  ['bfs', 'BFS siempre encuentra el camino de menor costo aunque las aristas tengan pesos distintos.', false, 'BFS cuenta aristas, no costos; UCS es el que minimiza el costo.'],
+  ['ciega', 'Un algoritmo de búsqueda ciega sabe en cada paso qué tan lejos está de la solución.', false, 'La búsqueda ciega explora sin saber qué tan cerca o lejos está de la solución.'],
+  ['dfs', 'DFS siempre devuelve el camino más corto.', false, 'DFS no garantiza ni el camino más corto ni el más barato.'],
+  ['dfs', 'DFS puede no ser completo si el grafo tiene ramas infinitas.', true, 'Podría bajar por una rama infinita sin volver nunca.'],
+  ['ciega', 'BFS y DFS siempre visitan los nodos en el mismo orden.', false, 'En la diapositiva 37, BFS da 0, 1, 2, 3, 4, 5 y DFS da 0, 1, 3, 4, 2, 5.'],
+  ['ciega', 'Si todos los costos son iguales, UCS elige un camino con el menor número de aristas, igual que BFS.', true, 'Con costos iguales, minimizar el costo es minimizar el número de aristas.'],
+  ['ciega', 'La complejidad en tiempo de BFS y de DFS es O(V + E).', true, 'Cada vértice y cada arista se procesan una vez.'],
+  ['ciega', 'Para recorrer todo un grafo desconectado basta ejecutar BFS una sola vez desde cualquier nodo.', false, 'Solo alcanzaría su componente; hay que lanzarlo desde cada nodo no visitado.'],
+  ['ciega', 'Se guardan los nodos visitados para no procesar un nodo más de una vez cuando hay ciclos.', true, 'Sin visitados, los ciclos causarían bucles infinitos.'],
+  ['dfs', 'DFS puede escribirse de forma recursiva, y la recursión hace el papel de la pila.', true, 'La pila de llamadas de Python guarda los nodos pendientes.'],
+  ['local', 'Hill Climbing guarda en memoria todo el camino que recorrió.', false, 'Solo conserva el estado actual y olvida los pasos anteriores.'],
+  ['local', 'Hill Climbing puede detenerse en un máximo local que no es el mejor de todos.', true, 'Ese es su problema principal.'],
+  ['local', 'El reinicio aleatorio reduce el riesgo de quedarse atrapado en un máximo local.', true, 'Empezar desde otro punto da otra oportunidad de llegar al máximo global.'],
+  ['local', 'La búsqueda local necesita conocer todo el mapa del espacio de estados antes de empezar.', false, 'Solo considera los vecinos directos del estado actual.'],
+  ['local', 'En el 8-puzzle con h(n) = fichas mal colocadas, el objetivo es minimizar h hasta llegar a 0.', true, 'h = 0 significa que todas las fichas están en su lugar.'],
+  ['local', 'Si todos los vecinos valen lo mismo que el estado actual, Hill Climbing no tiene un vecino estrictamente mejor y se detiene.', true, 'Es el caso de la diapositiva 27, donde todos los vecinos tienen h = 2.'],
+  ['local', 'Una terraza es una zona plana desde la que todavía se puede subir más.', true, 'Diapositiva 17: terraza junto al máximo global.'],
+  ['local', 'La distancia Manhattan suma, para cada ficha, las filas y columnas que le faltan para llegar a su lugar.', true, 'h₂ = Σ (|fila − fila_meta| + |col − col_meta|).'],
+  ['local', 'La búsqueda local forma parte del temario del primer examen junto con la búsqueda ciega.', true, 'Primer examen: problemas, espacios de búsqueda, búsqueda local y búsqueda ciega.'],
+  ['problemas', 'Clasificar una imagen de un gato es un problema de búsqueda.', false, 'No hay secuencia de acciones entre estados; es otro tipo de problema.'],
+  ['problemas', 'Encontrar la ruta de un robot en una cuadrícula es un problema de búsqueda.', true, 'Hay estado inicial, acciones, estados y objetivo.'],
+  ['problemas', 'Un problema de búsqueda se formaliza con seis elementos: estado inicial, estados, acciones, transición, objetivo y costo.', true, 'Son los seis puntos de la actividad de la diapositiva 9.'],
+  ['estados', 'En el árbol de búsqueda un mismo estado del grafo puede aparecer en varios nodos.', true, 'Cada nodo representa un camino hacia un estado.'],
+  ['estados', 'En el grafo de estados cada estado aparece una sola vez y puede haber ciclos.', true, 'Es la estructura sobre la que está definido el problema.'],
+  ['estados', 'La abstracción conserva todos los detalles del mundo real.', false, 'Elimina los detalles innecesarios y conserva lo necesario para buscar una solución.'],
+  ['estados', 'El espacio de estados es el conjunto de todas las configuraciones posibles del problema.', true, 'Definición de la diapositiva 10.'],
+  ['estados', 'En el árbol de búsqueda las hojas son los nodos que aún no se han expandido.', true, 'Raíz = estado inicial; hojas = nodos sin expandir.']
+];
+const EX_SHORT = [
+  ['bfs', '¿Qué estructura de datos (FIFO) usa BFS? Responde con una o dos palabras.', ['cola', 'queue', 'cola fifo'], 'BFS usa una cola.'],
+  ['dfs', '¿Qué estructura de datos (LIFO) usa DFS?', ['pila', 'stack', 'pila lifo', 'recursion'], 'DFS usa una pila (o recursión).'],
+  ['ucs', '¿Qué estructura de datos usa UCS?', ['cola de prioridad', 'priority queue', 'heap', 'heapq', 'monticulo', 'cola de prioridades'], 'UCS usa una cola de prioridad (heapq en Python).'],
+  ['ucs', 'En UCS, ¿cómo se escribe el costo acumulado desde el estado inicial hasta el nodo n?', ['g(n)', 'g'], 'Se escribe g(n).'],
+  ['problemas', '¿Cuántos elementos se definen para formalizar un problema de búsqueda?', [6], 'Seis: estado inicial, estados, acciones, transición, objetivo y costo.'],
+  ['bfs', '¿Cuál es la complejidad en tiempo de BFS en función de V y E?', ['o(v+e)'], 'O(V + E).'],
+  ['bfs', '¿Qué método de deque saca el elemento del extremo izquierdo en el BFS de clase?', ['popleft', 'popleft()'], 'popleft().'],
+  ['ucs', '¿Qué módulo de Python se usa en el UCS de clase para la cola de prioridad?', ['heapq'], 'heapq.'],
+  ['ucs', '¿Qué función de heapq saca la tupla de menor costo?', ['heappop', 'heappop()', 'heapq.heappop', 'heapq.heappop()'], 'heappop().'],
+  ['local', '¿Cómo se llama el mejor pico de todo el espacio de estados?', ['maximo global', 'global'], 'Máximo global.'],
+  ['local', '¿Cómo se llama un pico más bajo donde Hill Climbing se detiene aunque exista uno mejor?', ['maximo local', 'local'], 'Máximo local.'],
+  ['local', 'Menciona una técnica para salir de un atasco en Hill Climbing (diapositivas 28 y 29).', ['reinicio aleatorio', 'random restart', 'random-restart', 'manhattan', 'distancia manhattan', 'cambiar la heuristica'], 'Reinicio aleatorio o cambiar la heurística (Manhattan).'],
+  ['local', '¿Cómo se llama la distancia que suma filas y columnas que le faltan a cada ficha?', ['manhattan', 'distancia manhattan'], 'Distancia Manhattan.'],
+  ['local', '¿Cuánto vale h(n) en el estado objetivo del 8-puzzle?', [0], 'h(n) = 0.'],
+  ['estados', '¿Cómo se llaman los nodos del árbol de búsqueda que aún no se han expandido?', ['hojas', 'hoja'], 'Hojas.'],
+  ['estados', '¿Qué representa la raíz del árbol de búsqueda?', ['estado inicial', 'el estado inicial'], 'La raíz es el estado inicial.'],
+  ['local', 'En el ejercicio de ciudades (diapositiva 32), ¿cuántos km mide la ruta [A, C, D, E, B, A]?', [53], '12 + 18 + 5 + 8 + 10 = 53 km.'],
+  ['local', 'Para f(x) = −x² + 4x, ¿en qué valor de x está el máximo?', [2], 'En x = 2, donde f(2) = 4.'],
+  ['bfs', 'Según GeeksforGeeks, ¿cuál es el espacio auxiliar de BFS?', ['o(v)'], 'O(V): la cola y el arreglo de visitados.']
+];
+const EX_OPEN = [
+  ['problemas', 'Explica qué es un problema de búsqueda y menciona los seis elementos para formalizarlo.', 'Es la formalización con la que un agente calcula una secuencia ordenada de acciones para pasar de una situación inicial a un estado objetivo. Se formaliza con: estado inicial, conjunto de estados, acciones, transición (qué estado resulta de aplicar una acción), objetivo y costo.', [['secuencia', 'acciones'], ['estado inicial', 'inicial'], ['estados'], ['transicion'], ['objetivo', 'meta'], ['costo']]],
+  ['problemas', 'Formaliza el 8-puzzle como problema de búsqueda (estado inicial, estados, acciones, transición, objetivo y costo).', 'Estado inicial: una configuración del tablero. Estados: todas las configuraciones de fichas. Acciones: deslizar la ficha vacía (arriba, abajo, izquierda, derecha). Transición: el tablero que resulta de intercambiar la vacía con la ficha vecina. Objetivo: fichas ordenadas 1 a 8. Costo: número de movimientos (1 por movimiento).', [['configuracion', 'tablero', 'fichas'], ['deslizar', 'mover', 'vacia', 'hueco'], ['ordenad', '1 a 8', '1 2 3', 'meta'], ['movimiento', 'costo 1', 'numero de mov']]],
+  ['estados', 'Explica la diferencia entre grafo de estados y árbol de búsqueda.', 'El grafo de estados es la representación del entorno: cada estado aparece una sola vez y puede haber ciclos. El árbol de búsqueda se genera en memoria al buscar: cada nodo representa un camino hasta un estado, por lo que un mismo estado puede aparecer en varios nodos; la raíz es el estado inicial y las hojas son nodos sin expandir.', [['grafo'], ['una sola vez', 'unico', 'una vez'], ['ciclos'], ['arbol'], ['varios', 'varias', 'repetid', 'multiples'], ['camino', 'raiz', 'generad', 'memoria']]],
+  ['estados', 'Explica qué es la abstracción y para qué se usa en un problema de búsqueda.', 'La abstracción elimina los detalles innecesarios del mundo real y conserva solo lo necesario para buscar una solución. Permite pasar del mundo real a un modelo formal (estado, acciones, transición, objetivo y costo) y de ahí al espacio de búsqueda.', [['elimina', 'quita', 'omite', 'detalles'], ['necesari', 'esencial', 'relevante'], ['modelo', 'formal', 'espacio de busqueda']]],
+  ['local', 'Describe cómo funciona Hill Climbing.', 'Parte de un estado actual, genera sus vecinos, evalúa cada uno con la función objetivo o heurística y se mueve al mejor si mejora al actual. Repite hasta que ningún vecino mejora y entonces se detiene. No guarda el camino: solo el estado actual.', [['vecino'], ['mejor'], ['mueve', 'avanza', 'selecciona', 'elige'], ['detiene', 'para', 'ningun', 'no mejora'], ['olvida', 'no guarda', 'solo el estado actual', 'unico estado', 'sin memoria']]],
+  ['local', 'Explica qué es un máximo local y menciona dos formas de evitar quedarse atrapado en él.', 'Un máximo local es un pico más bajo que el mejor del espacio: todos sus vecinos son peores, así que Hill Climbing se detiene aunque exista un máximo global más alto. Se puede evitar con reinicio aleatorio (empezar desde otro estado) o cambiando la heurística (por ejemplo, distancia Manhattan).', [['pico', 'vecinos peores', 'todos los vecinos', 'no hay mejor'], ['global', 'mas alto', 'mejor'], ['reinicio', 'random', 'aleatorio'], ['heuristica', 'manhattan', 'cambiar']]],
+  ['local', 'Explica en qué consiste la distancia Manhattan en el 8-puzzle y por qué puede ser mejor que contar fichas mal colocadas.', 'Para cada ficha se cuentan las filas y columnas que le faltan para llegar a su lugar, |fila − fila_meta| + |col − col_meta|, y se suman. Da más información que h₁: distingue una ficha casi en su lugar de otra muy lejos, así que ayuda a que Hill Climbing encuentre vecinos mejores y no se atasque tan pronto.', [['filas', 'columnas', 'horizontal', 'vertical'], ['suma', 'sumar'], ['cada ficha', 'por ficha'], ['distingue', 'mas informacion', 'cuan lejos', 'distancia', 'mejor']]],
+  ['ciega', 'Compara BFS y DFS: estructura de datos, orden de exploración y garantías.', 'BFS usa una cola (FIFO) y explora por niveles; encuentra el camino con menos aristas. DFS usa una pila (o recursión) y baja lo más profundo posible por una rama antes de retroceder; no garantiza el camino más corto ni ser completo con ramas infinitas.', [['cola', 'fifo'], ['pila', 'lifo', 'recursi'], ['nivel', 'anchura'], ['profund', 'rama', 'retroced'], ['menos aristas', 'mas corto', 'optim', 'no garantiza']]],
+  ['ucs', 'Explica cómo funciona UCS y por qué comprueba el objetivo al sacar el nodo de la cola y no al meterlo.', 'UCS usa una cola de prioridad ordenada por el costo acumulado g(n) y siempre saca el nodo de menor g. Comprueba el objetivo al sacarlo porque en ese momento ya no puede existir un camino más barato sin explorar; si se comprobara al meterlo, podría devolver un camino más caro.', [['cola de prioridad', 'heap', 'heapq'], ['costo acumulado', 'g(n)'], ['menor'], ['sacar', 'extraer', 'saca'], ['mas barato', 'optimo', 'menor costo', 'mas caro']]],
+  ['bfs', 'Explica por qué BFS no siempre encuentra el camino más barato y qué algoritmo sí lo hace.', 'BFS cuenta aristas (niveles), no costos: un camino con pocas aristas puede ser muy caro. UCS suma los costos acumulados y siempre expande el nodo de menor g, por eso sí encuentra el camino de menor costo.', [['aristas', 'niveles', 'pasos'], ['costo', 'pesos'], ['ucs', 'costo uniforme']]],
+  ['ciega', 'Explica cómo recorrerías un grafo desconectado con BFS o DFS y por qué hace falta marcar los nodos visitados.', 'Se recorre cada nodo del grafo y, si no está visitado, se lanza BFS o DFS desde él compartiendo el mismo conjunto de visitados, para cubrir todas las componentes conexas. Marcar visitados evita procesar un nodo varias veces y bucles infinitos cuando hay ciclos.', [['cada nodo', 'todos los nodos', 'ciclo for', 'for'], ['no visitado', 'sin visitar'], ['componente', 'conect', 'desconect'], ['ciclos', 'repetir', 'infinito', 'evitar']]],
+  ['bfs', 'Describe paso a paso qué hace BFS y qué ocurre con la cola.', 'Se mete el nodo inicial en la cola y se marca visitado. Mientras la cola no esté vacía: se saca el primer nodo (el más antiguo), se registra en el recorrido y se meten al final sus vecinos no visitados, marcándolos como visitados. Así se exploran los nodos nivel por nivel.', [['inicio', 'inicial'], ['cola'], ['saca', 'popleft', 'extrae'], ['vecinos'], ['visitado', 'marca'], ['nivel']]],
+  ['ciega', 'Explica las diferencias entre búsqueda ciega y búsqueda local.', 'La búsqueda ciega (BFS, DFS, UCS) explora el espacio con una regla fija sin saber qué tan cerca está de la meta y usa estructuras como cola, pila o cola de prioridad para guardar los caminos pendientes. La búsqueda local (Hill Climbing) modifica un único estado actual mirando solo a sus vecinos, usa poca memoria y puede quedarse en óptimos locales.', [['ciega', 'sin saber', 'cerca o lejos'], ['local', 'vecinos', 'unico estado', 'estado actual'], ['cola', 'pila', 'prioridad', 'camino', 'estructura'], ['optimo local', 'maximo local', 'atasc', 'poca memoria', 'memoria']]],
+  ['bfs', 'Describe dos aplicaciones de BFS y una limitación de DFS.', 'BFS sirve para hallar el camino más corto en un grafo sin pesos y para detectar ciclos; también es la base de Dijkstra, Kahn y Prim. DFS no garantiza el camino más corto ni más barato y puede perderse por ramas muy largas o infinitas.', [['camino mas corto', 'sin pesos', 'sin costos'], ['ciclo', 'dijkstra', 'prim', 'kahn', 'topologic'], ['no garantiza', 'no es optimo', 'rama infinita', 'no completo', 'mas largo']]],
+  ['local', 'Describe las tres ideas principales de Hill Climbing: ubicación actual, exploración cercana y decisión directa.', 'Ubicación actual: empieza en un estado concreto del problema. Exploración cercana: solo considera a sus vecinos directos. Decisión directa: se mueve a la mejor opción cercana y se olvida del camino y de los pasos anteriores.', [['ubicacion actual', 'estado actual', 'posicion concreta', 'estado concreto'], ['vecinos directos', 'cercan', 'inmediat', 'solo vecinos'], ['mejor opcion', 'mejor vecino', 'decision', 'olvida']]]
+];
+
+function randGraph(key) {
+  const def = GR[key], wf = def.labels ? () => 100 + rnd(51) * 10 : () => 1 + rnd(9);
+  const g = { directed: def.directed, nodes: def.nodes, labels: def.labels, edges: def.edges.map(([u, v, , o]) => [u, v, wf(), o]) };
+  buildAdj(g); return g;
+}
+const gVis = (g, start, goal) => graphSVG({ g, start, goal: goal || '', cost: true }, { path: null, result: [], struct: [], phase: 'pop', cur: null });
+const startOf = key => (FREE_META[key] ? FREE_META[key][0] : Object.keys(GR[key].nodes)[0]);
+const GEN_KEYS = ['tree35', 'g41L', 'g41R', 'p4', 'u13', 'u43', 'd44', 'd45', 'd42', 'tree', 'cities46'];
+function genOrder() {
+  for (let t = 0; t < 40; t++) {
+    const key = GEN_KEYS[rnd(GEN_KEYS.length)], g = randGraph(key), start = startOf(key), a = ['bfs', 'dfs'][rnd(2)];
+    const ord = {}; ['bfs', 'dfs', 'ucs'].forEach(x => { ord[x] = bot(SearchGame({ algo: x, g, start, goal: '' })).result.slice(0, 8); });
+    if (ord[a].length < 4) continue;
+    const sw = ord[a].slice(); const k = 1 + rnd(sw.length - 2); [sw[k], sw[k + 1]] = [sw[k + 1], sw[k]];
+    const cand = [ord[a], ord.bfs === ord[a] ? null : ord.bfs, ord.dfs, ord.ucs, sw, ord[a].slice().reverse()].filter(Boolean).map(o => o.join(', '));
+    const uniq = [...new Set(cand)]; if (uniq.length < 4 || !uniq.includes(ord[a].join(', '))) continue;
+    const correct = ord[a].join(', '), opts = shuffle([correct, ...shuffle(uniq.filter(x => x !== correct)).slice(0, 3)]);
+    return { type: 'mc', topic: a, q: `En este grafo, empezando en ${start}, ¿qué orden de visita produce ${a.toUpperCase()}? (Los vecinos se visitan en ${g.labels ? 'orden alfabético' : 'orden alfabético o numérico'}; se muestran los primeros ${ord[a].length} nodos. Los números sobre las líneas son costos y BFS/DFS no los usan.)`, vis: gVis(g, start, ''), opts, a: opts.indexOf(correct), why: { bfs: 'BFS visita por niveles con una cola.', dfs: 'DFS baja por una rama antes de retroceder (pila).' }[a] + ` Orden correcto: ${correct}.` };
+  }
+  return null;
+}
+function genUcs() {
+  const key = ['u13', 'u43', 'd42', 'd44', 'd45', 'cities46'][rnd(6)], g = randGraph(key), [s0, t0] = FREE_META[key], best = minCost(g, s0, t0);
+  const S = bot(SearchGame({ algo: 'ucs', g, start: s0, goal: t0 }));
+  return { type: 'short', topic: 'ucs', q: `¿Cuál es el costo del camino más barato de ${s0} a ${t0} (el que encuentra UCS)? Escribe solo el número.`, vis: gVis(g, s0, t0), accepted: [best], show: String(best), why: `UCS encuentra ${S.path.join(' → ')} con costo ${best}.` };
+}
+function genBfsEdges() {
+  const key = ['tree35', 'g41R', 'd44', 'd45', 'u13', 'u43', 'd42'][rnd(7)], g = randGraph(key), [s0, t0] = FREE_META[key] || [startOf(key), 'E'];
+  const S = bot(SearchGame({ algo: 'bfs', g, start: s0, goal: t0 })), n = S.path.length - 1;
+  return { type: 'short', topic: 'bfs', q: `¿Cuántas aristas tiene el camino que encuentra BFS de ${s0} a ${t0}? Escribe solo el número.`, vis: gVis(g, s0, t0), accepted: [n], show: String(n), why: `BFS encuentra ${S.path.join(' → ')}: ${n} aristas (cuenta aristas, no costos).` };
+}
+function genH() {
+  const s = scramblePuz(4 + rnd(8)), hk = ['h1', 'h2'][rnd(2)], val = hk === 'h1' ? H1(s) : H2(s);
+  const det = hk === 'h1' ? `Fichas mal colocadas: ${s.filter((v, i) => v && v !== GOAL[i]).join(', ')}.` : `Distancias: ${s.map((v, i) => (v && tdist(v, i) ? `${v}→${tdist(v, i)}` : null)).filter(Boolean).join(' + ')}.`;
+  return { type: 'short', topic: 'local', q: hk === 'h1' ? 'Con la meta [1 2 3 / 4 5 6 / 7 8 _], ¿cuánto vale h₁ (fichas mal colocadas, sin contar el hueco) de este tablero?' : 'Con la meta [1 2 3 / 4 5 6 / 7 8 _], ¿cuánto vale h₂ (distancia Manhattan) de este tablero?', vis: `<div class="board" style="max-width:200px">${boardHTML(s, null)}</div>`, accepted: [val], show: String(val), why: `${det} Total: ${val}.` };
+}
+function genRoute() {
+  const r = makeRoute(), route = r.start, d = routeDist(r.dist, route);
+  return { type: 'short', topic: 'local', q: `Con esta tabla de distancias, ¿cuánto mide la ruta ${route.join(' → ')}? Escribe solo el número.`, vis: distTable(r.dist), accepted: [d], show: String(d), why: `${route.slice(0, -1).map((c, i) => `${c}→${route[i + 1]} ${r.dist[c][route[i + 1]]}`).join(' + ')} = ${d}.` };
+}
+function genPq() {
+  const names = shuffle(['A', 'B', 'C', 'D', 'E']).slice(0, 4), gs = shuffle([2, 3, 5, 7, 8, 9]).slice(0, 4), t = ['queue', 'stack', 'pq'][rnd(3)];
+  const items = names.map((n, i) => ({ n, g: gs[i] })), lab = items.map(i => (t === 'pq' ? `${i.n} (g = ${i.g})` : i.n)).join(', ');
+  const ans = t === 'queue' ? items[0] : t === 'stack' ? items[items.length - 1] : items.reduce((b, x) => (x.g < b.g ? x : b));
+  const opts = shuffle(items.map(i => i.n));
+  return { type: 'mc', topic: { queue: 'bfs', stack: 'dfs', pq: 'ucs' }[t], q: `Se meten en este orden: ${lab}. Si la estructura es una ${{ queue: 'cola (FIFO)', stack: 'pila (LIFO)', pq: 'cola de prioridad' }[t]}, ¿qué elemento sale primero?`, opts, a: opts.indexOf(ans.n), why: { queue: 'En una cola sale el primero que entró.', stack: 'En una pila sale el último que entró (el tope).', pq: 'En una cola de prioridad sale el de menor g.' }[t] + ` Sale ${ans.n}.` };
+}
+function genSeq() {
+  const t = ['queue', 'stack'][rnd(2)], L = shuffle(['A', 'B', 'C', 'D', 'E']), ops = ['+' + L[0], '+' + L[1], '-', '+' + L[2], '+' + L[3], '-', '-'], items = [], out = [];
+  ops.forEach(o => { if (o[0] === '+') items.push(o.slice(1)); else out.push(t === 'queue' ? items.shift() : items.pop()); });
+  const txt = ops.map(o => (o[0] === '+' ? `meter ${o.slice(1)}` : 'sacar')).join(', ');
+  return { type: 'short', seq: true, topic: t === 'queue' ? 'bfs' : 'dfs', q: `En una ${t === 'queue' ? 'cola (FIFO)' : 'pila (LIFO)'} se hace: ${txt}. ¿Qué elementos salen, en orden? Escríbelos separados por espacios o comas.`, accepted: [out.join(' ').toLowerCase()], show: out.join(', '), why: `${t === 'queue' ? 'La cola saca siempre el más antiguo' : 'La pila saca siempre el último que entró'}. Salen: ${out.join(', ')}.` };
+}
+const GENS = [genOrder, genOrder, genUcs, genUcs, genBfsEdges, genH, genH, genRoute, genPq, genPq, genSeq];
+
+function buildExam() {
+  const n = 12 + rnd(29);
+  const conv = (arr, type) => arr.map((r, i) => {
+    if (type === 'mc') { const opts = shuffle(r[2].map((t, k) => ({ t, ok: k === r[3] }))); return { id: 'mc' + i, type, topic: r[0], q: r[1], opts: opts.map(o => o.t), a: opts.findIndex(o => o.ok), why: r[4] }; }
+    if (type === 'tf') return { id: 'tf' + i, type, topic: r[0], q: r[1], a: r[2], why: r[3] };
+    if (type === 'short') return { id: 'sh' + i, type, topic: r[0], q: r[1], accepted: r[2].map(x => (typeof x === 'string' ? normTxt(x) : x)), show: String(r[2][0]), why: r[3] };
+    return { id: 'op' + i, type, topic: r[0], q: r[1], model: r[2], groups: r[3] };
+  });
+  const mc = shuffle(conv(EX_MC, 'mc')), tf = shuffle(conv(EX_TF, 'tf')), sh = shuffle(conv(EX_SHORT, 'short')), op = shuffle(conv(EX_OPEN, 'open'));
+  const nOpen = Math.max(1, Math.round(n * 0.15)), nTf = Math.round(n * 0.2), nGen = Math.round(n * 0.3);
+  const gen = []; for (let i = 0, g = 0; i < nGen && g < 80; g++) { const q = GENS[rnd(GENS.length)](); if (q && !gen.some(x => x.q === q.q)) { gen.push({ id: 'g' + i, ...q }); i++; } }
+  const rest = n - nOpen - nTf - gen.length, fill = shuffle([...mc, ...sh.slice(0, 8)]).slice(0, Math.max(0, rest));
+  const qs = shuffle([...op.slice(0, nOpen), ...tf.slice(0, nTf), ...gen, ...fill]).slice(0, n);
+  return { stage: 'start', mode: 'study', qs, i: 0, ans: [], sel: null, note: '' };
+}
+function gradeShort(q, text) {
+  const raw = String(text).trim(); if (!raw) return 0;
+  if (typeof q.accepted[0] === 'number') {
+    const w = NUM_WORDS[normTxt(raw)], x = w !== undefined ? w : parseFloat(raw.replace(',', '.'));
+    return q.accepted.includes(x) ? 1 : 0;
+  }
+  const nt = normTxt(raw);
+  if (q.seq) return q.accepted.includes(nt.split(/[^a-z0-9]+/).filter(Boolean).join(' ')) ? 1 : 0;
+  const strip = s => s.replace(/^(el|la|los|las|un|una) /, ''), comp = s => s.replace(/\s+/g, '');
+  return q.accepted.some(a => strip(nt) === strip(a) || comp(nt) === comp(a)) ? 1 : 0;
+}
+function gradeOpen(q, text) {
+  const nt = normTxt(text), hits = q.groups.map(gr => nt.length > 0 && gr.some(t => nt.includes(normTxt(t))));
+  const cov = hits.filter(Boolean).length / q.groups.length;
+  return { score: cov >= 0.7 ? 1 : cov >= 0.4 ? 0.5 : 0, hits, cov };
+}
+function examGrade(q, val) {
+  if (q.type === 'mc') return { val, score: val === q.a ? 1 : 0 };
+  if (q.type === 'tf') return { val, score: val === q.a ? 1 : 0 };
+  if (q.type === 'short') return { val, score: gradeShort(q, val) };
+  const o = gradeOpen(q, val); return { val, score: o.score, hits: o.hits };
+}
+const examCorrectText = q => (q.type === 'mc' ? q.opts[q.a] : q.type === 'tf' ? (q.a ? 'Verdadero' : 'Falso') : q.type === 'short' ? q.show : q.model);
+const examYourText = (q, a) => (!a ? 'sin responder' : q.type === 'mc' ? q.opts[a.val] : q.type === 'tf' ? (a.val ? 'Verdadero' : 'Falso') : (String(a.val).trim() || 'sin responder'));
+function openFeedback(q, a, i, editable) {
+  const keys = q.groups.map((gr, k) => `<li style="color:${a.hits && a.hits[k] ? 'var(--good)' : 'var(--bad)'}">${a.hits && a.hits[k] ? '✓' : '✗'} ${gr[0]}</li>`).join('');
+  const btn = (v, l) => `<button class="btn sm${a.score === v ? ' primary' : ''}" data-act="exam-grade" data-i="${i}" data-v="${v}">${l}</button>`;
+  return `<p><b>Respuesta modelo:</b> ${q.model}</p><p class="muted" style="margin-bottom:4px">Ideas clave detectadas en tu respuesta (por palabras clave):</p><ul class="hints">${keys}</ul>
+    <p class="muted" style="margin:8px 0 4px">Calificación sugerida: ${a.score === 1 ? 'completa' : a.score === 0.5 ? 'parcial' : 'incompleta'}. Ajústala si crees que tu respuesta lo merece:</p><div class="btns">${btn(1, 'Completa')}${btn(0.5, 'Parcial')}${btn(0, 'Incompleta')}</div>`;
+}
+function examQuestionBody(ex, q, a, study) {
+  const shown = !!a && study;
+  let inp = '';
+  if (q.type === 'mc') inp = `<div class="opts">${q.opts.map((t, i) => `<button class="opt${shown ? (i === q.a ? ' right' : i === a.val ? ' wrong' : '') : (ex.sel === i ? ' sel' : '')}" data-act="exam-pick" data-i="${i}"${shown ? ' disabled' : ''}>${t}</button>`).join('')}</div>`;
+  else if (q.type === 'tf') inp = `<div class="opts" style="flex-direction:row">${[[true, 'Verdadero'], [false, 'Falso']].map(([v, l]) => `<button class="opt${shown ? (v === q.a ? ' right' : v === a.val ? ' wrong' : '') : (ex.sel === v ? ' sel' : '')}" data-act="exam-pick" data-v="${v ? 1 : 0}"${shown ? ' disabled' : ''}>${l}</button>`).join('')}</div>`;
+  else if (q.type === 'short') inp = `<input type="text" id="exam-text" class="xtext" autocomplete="off" placeholder="Escribe tu respuesta" aria-label="Respuesta"${shown ? ` disabled value="${String(a.val).replace(/"/g, '&quot;')}"` : ''}>`;
+  else inp = `<textarea id="exam-text" class="xtext" rows="5" placeholder="Escribe tu respuesta con tus propias palabras" aria-label="Respuesta"${shown ? ' disabled' : ''}>${shown ? a.val : ''}</textarea>`;
+  let fb = '';
+  if (shown) {
+    if (q.type === 'open') fb = `<div class="fb ${a.score === 1 ? 'ok' : a.score === 0.5 ? 'info' : 'err'}">${openFeedback(q, a, ex.i, true)}</div>`;
+    else fb = `<div class="fb ${a.score ? 'ok' : 'err'}">${a.score ? 'Correcto. ' : `Incorrecto. La respuesta correcta es: <b>${examCorrectText(q)}</b>. `}${q.why || ''}</div>`;
+  }
+  const act = !a ? `<button class="btn primary" data-act="exam-submit">Responder</button>` : (study ? `<button class="btn primary" data-act="exam-next">${ex.i + 1 >= ex.qs.length ? 'Ver resultado' : 'Siguiente'}</button>` : '');
+  return `${inp}${ex.note ? `<div class="fb err">${ex.note}</div>` : ''}${fb}<div class="btns" style="margin-top:10px">${act}</div>`;
+}
+function renderExam() {
+  const ex = ui.exam, n = ex.qs.length, c = t => ex.qs.filter(q => q.type === t).length;
+  if (ex.stage === 'start') {
+    return `${topbar('Examen teórico', `${n} preguntas al azar`)}<div class="panel card"><h3>Examen generado: ${n} preguntas</h3>
+      <p>La cantidad es aleatoria (entre 12 y 40). Las preguntas y las opciones salen en orden aleatorio y se basan en tu presentación, en los artículos de GeeksforGeeks y en el código de clase de BFS, DFS, UCS y Hill Climbing.</p>
+      <p class="muted">Tipos en este examen: ${c('mc')} de opción múltiple, ${c('tf')} de verdadero o falso, ${c('short')} de respuesta corta y ${c('open')} abiertas.</p>
+      <h2 style="margin-top:6px">Modo</h2><div class="btns" role="group" aria-label="Modo">
+        <button class="btn${ex.mode === 'study' ? ' primary' : ''}" data-act="exam-mode" data-v="study" aria-pressed="${ex.mode === 'study'}">Estudio: ver la respuesta al instante</button>
+        <button class="btn${ex.mode === 'exam' ? ' primary' : ''}" data-act="exam-mode" data-v="exam" aria-pressed="${ex.mode === 'exam'}">Examen: resultados al final</button></div>
+      <div class="btns" style="margin-top:6px"><button class="btn primary" data-act="exam-start">Empezar</button><button class="btn" data-act="exam-new">Generar otro examen</button></div></div>`;
+  }
+  if (ex.stage === 'result') return examResult(ex);
+  const q = ex.qs[ex.i], a = ex.ans[ex.i], study = ex.mode === 'study', pct = Math.round(((ex.i + (a && study ? 1 : 0)) / n) * 100);
+  return `${topbar('Examen teórico · ' + TOPICS[q.topic], `Pregunta ${ex.i + 1} de ${n}`, `<span class="pill">${ex.mode === 'study' ? 'modo estudio' : 'modo examen'}</span>`)}
+  <div class="panel card"><div class="xbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+    <span class="xtag">${TYPE_LAB[q.type]}</span>${q.vis ? `<div class="vis" style="overflow-x:auto">${q.vis}</div>` : ''}<h3>${q.q}</h3>${examQuestionBody(ex, q, a, study)}</div>`;
+}
+function examResult(ex) {
+  const n = ex.qs.length, total = ex.ans.reduce((s, a) => s + (a ? a.score : 0), 0), pct = Math.round((total / n) * 100);
+  const by = {}; ex.qs.forEach((q, i) => { const t = by[q.topic] || (by[q.topic] = { s: 0, n: 0 }); t.n++; t.s += ex.ans[i] ? ex.ans[i].score : 0; });
+  const rows = Object.keys(by).map(k => `<tr><td>${TOPICS[k]}</td><td class="mono">${by[k].s % 1 ? by[k].s.toFixed(1) : by[k].s} / ${by[k].n}</td><td class="mono">${Math.round(by[k].s / by[k].n * 100)}%</td></tr>`).join('');
+  const rev = ex.qs.map((q, i) => { const a = ex.ans[i], ok = a && a.score === 1, part = a && a.score === 0.5;
+    return `<details class="rev"><summary><span class="pill${ok ? '' : ' err'}" style="${ok ? 'background:var(--good-soft);color:var(--good)' : ''}">${ok ? '✓' : part ? '½' : '✗'}</span> ${i + 1}. ${q.q.length > 110 ? q.q.slice(0, 110) + '…' : q.q}</summary>
+      <div class="revbody">${q.vis ? `<div class="vis" style="overflow-x:auto">${q.vis}</div>` : ''}<p><b>${q.q}</b></p><p>Tu respuesta: <b>${examYourText(q, a)}</b></p>${q.type === 'open' ? (a ? openFeedback(q, a, i, true) : `<p><b>Respuesta modelo:</b> ${q.model}</p>`) : `<p>Respuesta correcta: <b>${examCorrectText(q)}</b></p><p class="muted">${q.why || ''}</p>`}</div></details>`; }).join('');
+  return `${topbar('Examen teórico', 'Resultado')}<div class="panel card"><h3>${total % 1 ? total.toFixed(1) : total} de ${n} puntos · ${pct}%</h3>
+    <p class="muted">${pct >= 90 ? 'Excelente: estás muy bien preparado.' : pct >= 70 ? 'Buen nivel. Repasa los temas con menor porcentaje.' : 'Repasa la presentación y practica con los niveles del juego antes del examen.'} Las preguntas abiertas se calificaron por palabras clave; puedes ajustar su calificación abajo.</p>
+    <div class="tbl-wrap" style="overflow-x:auto"><table class="dtab" style="width:100%"><tr><th style="text-align:left">Tema</th><th>Puntos</th><th>%</th></tr>${rows}</table></div>
+    <div class="btns"><button class="btn primary" data-act="exam-new">Nuevo examen aleatorio</button><button class="btn" data-act="home">Menú</button></div></div>
+    <div class="panel"><h2>Revisión pregunta por pregunta</h2>${rev}</div>`;
+}
+const examPanel = () => `<div class="panel"><h2>Examen teórico aleatorio</h2><p class="muted">Entre 12 y 40 preguntas al azar (opción múltiple, verdadero o falso, respuesta corta y abiertas), basadas en tu presentación y en BFS, DFS, UCS y Hill Climbing. Cada examen es distinto.</p><button class="btn primary" data-act="exam-new">Generar examen</button></div>`;
+
 function render() {
-  const f = { home: renderHome, intro: renderIntro, play: renderPlay, struct: renderStruct, sandbox: renderSandbox, land: renderLand, puz: renderPuz, quiz: renderQuiz }[ui.screen];
+  const f = { exam: renderExam, home: renderHome, intro: renderIntro, play: renderPlay, struct: renderStruct, sandbox: renderSandbox, land: renderLand, puz: renderPuz, quiz: renderQuiz }[ui.screen];
   app.innerHTML = f();
   if (ui.screen === 'intro') startIntroAnim(); else stopIntro();
 }
@@ -1333,6 +1627,20 @@ function doAct(a, d) {
     case 'hint2': useHint(2); break;
     case 'hint3': useHint(3); break;
     case 'prand': g.rand(); break;
+    case 'exam-new': ui.exam = buildExam(); ui.screen = 'exam'; break;
+    case 'exam-mode': ui.exam.mode = d.v; break;
+    case 'exam-start': Object.assign(ui.exam, { stage: 'q', i: 0, ans: [], sel: null, note: '' }); break;
+    case 'exam-pick': ui.exam.sel = d.v !== undefined ? d.v === '1' : +d.i; ui.exam.note = ''; break;
+    case 'exam-submit': {
+      const ex = ui.exam, q = ex.qs[ex.i]; let val;
+      if (q.type === 'mc' || q.type === 'tf') { if (ex.sel === null) { ex.note = 'Elige una respuesta antes de continuar.'; break; } val = ex.sel; }
+      else { val = ($('exam-text') || {}).value || ''; if (!String(val).trim()) { ex.note = 'Escribe una respuesta antes de continuar.'; break; } }
+      ex.note = ''; ex.ans[ex.i] = examGrade(q, val);
+      if (ex.mode === 'exam') { ex.i++; ex.sel = null; if (ex.i >= ex.qs.length) ex.stage = 'result'; }
+      break;
+    }
+    case 'exam-next': { const ex = ui.exam; ex.i++; ex.sel = null; ex.note = ''; if (ex.i >= ex.qs.length) ex.stage = 'result'; break; }
+    case 'exam-grade': { const a = ui.exam.ans[+d.i]; if (a) a.score = +d.v; break; }
     case 'demo': if (demo.on) stopDemo(); else { startDemo(); return; } break;
     case 'toggle-h': g.S.showAll = !g.S.showAll; break;
     case 'sb-pop': sbPopAuto(); break;
@@ -1380,7 +1688,7 @@ app.addEventListener('click', e => {
   if (demo.on && !['demo', 'home'].includes(t.dataset.act)) return;
   act(t.dataset.act, Object.assign({}, t.dataset), t.getBoundingClientRect());
 });
-window.__maestro = { makeFree, launch, makeGrid, makeRoute, act, ui, SearchGame, bot, LEVELS, LandGame, PuzGame, StructGame, makeQuiz, render, startLevel };
+window.__maestro = { buildExam, examGrade, gradeOpen, gradeShort, EX_OPEN, EX_MC, EX_TF, EX_SHORT, makeFree, launch, makeGrid, makeRoute, act, ui, SearchGame, bot, LEVELS, LandGame, PuzGame, StructGame, makeQuiz, render, startLevel };
 render();
 })();
 </script>
