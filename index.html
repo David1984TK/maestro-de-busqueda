@@ -178,6 +178,13 @@ input[type="number"] { font: inherit; font-family: var(--font-data); width: 84px
 .dtab th, .dtab td { border: 1px solid var(--line); padding: 3px 8px; text-align: center; }
 .route { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-family: var(--font-data); font-weight: 700; }
 .route .city { background: var(--n-frontier); border: 2px solid var(--ink); border-radius: 8px; padding: 2px 9px; }
+.tile.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.tile sub { position: absolute; right: 4px; bottom: 1px; font-size: 0.68rem; font-weight: 500; color: var(--muted); }
+.tile.far sub { color: var(--bad); font-weight: 700; }
+.mini .tile sub { font-size: 0.55rem; right: 2px; bottom: 0; }
+.route .leg { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; font-size: 0.8rem; color: var(--muted); }
+.route .leg small { font-size: 0.72rem; color: var(--ink); }
+.formula { font-family: var(--font-data); font-size: 0.86rem; overflow-wrap: anywhere; margin: 4px 0 0; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -208,7 +215,7 @@ const GR = {
     edges: [['A','B',1],['A','C',1],['B','D',1],['B','E',1],['C','F',1],['D','G',1]] },
   g41R: { directed: false, nodes: { A: [80,190], B: [250,70], C: [250,300], D: [520,70], E: [520,300] },
     edges: [['A','B',1],['A','C',1],['B','C',1],['B','D',1],['C','E',1],['D','E',1]] },
-  g41L: { directed: false, nodes: { '0': [320,40], '3': [190,110], '1': [450,110], '2': [320,190], '4': [190,270], '5': [450,270], '6': [320,320] },
+  g41L: { directed: false, nodes: { '0': [320,40], '3': [190,110], '1': [450,110], '2': [320,190], '4': [190,270], '5': [450,270], '6': [320,308] },
     edges: [['0','1',1],['0','3',1],['1','2',1],['1','5',1],['1','6',1,{bend:-60}],['2','3',1],['2','4',1],['2','5',1],['3','4',1],['4','6',1]] },
   d44: { directed: true, nodes: { A: [50,200], B: [165,120], C: [260,290], D: [290,120], G: [410,115], E: [540,55], F: [420,210], H: [590,210] },
     edges: [['A','B',1],['A','C',8],['B','D',1],['B','E',3,{bend:70}],['C','F',2],['D','F',1],['D','G',6],['E','H',7],['F','B',2],['F','H',2],['G','E',1]] },
@@ -223,7 +230,7 @@ const GR = {
 };
 GR.p4 = { directed: false, nodes: { '0': [110,170], '1': [290,60], '2': [290,280], '5': [520,170] },
   edges: [['0','1',1],['0','2',1],['1','2',1],['1','5',1],['2','5',1]] };
-GR.tree35 = { directed: false, nodes: { '1': [60,90], '0': [400,40], '3': [270,100], '2': [470,130], '4': [180,170], '9': [590,210], '7': [150,260], '5': [40,290], '6': [400,260], '8': [500,320] },
+GR.tree35 = { directed: false, nodes: { '1': [40,160], '3': [140,160], '0': [240,55], '4': [240,270], '2': [350,160], '9': [570,100], '7': [380,250], '5': [310,305], '6': [520,230], '8': [590,300] },
   edges: [['1','0',1],['0','3',1],['0','2',1],['3','2',1],['3','4',1],['4','2',1],['1','4',1],['2','9',1],['4','7',1],['7','5',1],['7','6',1],['6','9',1],['6','8',1]] };
 const CITY_POS = { Santander: [190,40], Zaragoza: [390,40], Barcelona: [580,100], Santiago: [40,110], Salamanca: [100,200], Madrid: [270,170], Valencia: [500,230], Sevilla: [90,300], Granada: [400,310], 'Málaga': [250,310] };
 const CITY_LAB = { Santander: 'SDR', Zaragoza: 'ZAR', Barcelona: 'BCN', Santiago: 'SGO', Salamanca: 'SAL', Madrid: 'MAD', Valencia: 'VAL', Sevilla: 'SEV', Granada: 'GRA', 'Málaga': 'MLG' };
@@ -337,8 +344,8 @@ function SearchGame(lv) {
     const e = exp.splice(k, 1)[0]; S.pushed.push(n);
     const item = { n, g: S.curItem.g + e.w, path: [...S.curItem.path, n] };
     S.struct.push(item); if (algo === 'bfs') S.visited.push(n);
-    if (exp.length === 0) { S.phase = 'pop'; good(`Metiste ${n}${algo === 'ucs' ? ` con g = ${item.g}` : ''}. Ya no quedan vecinos nuevos: vuelve a sacar.`); checkEmpty(); return { ok: true }; }
-    return good(`Metiste ${n}${algo === 'ucs' ? ` con g = ${S.curItem.g} + ${e.w} = ${item.g}` : ''}.`);
+    if (exp.length === 0) { S.phase = 'pop'; good(`Metiste ${n} (g = ${S.curItem.g} + ${e.w} = ${item.g}). Ya no quedan vecinos nuevos: vuelve a sacar.`); checkEmpty(); return { ok: true }; }
+    return good(`Metiste ${n} (g = ${S.curItem.g} + ${e.w} = ${item.g}).`);
   }
   function finish() {
     if (S.done || S.phase !== 'push') return { ok: false };
@@ -485,7 +492,7 @@ function PuzGame(cfg) {
   const h = route ? (r => routeDist(cfg.dist, r)) : (cfg.h === 'h1' ? H1 : H2);
   const nbf = route ? routeNeighbors : neighbors;
   const hn = route ? 'km' : (cfg.h === 'h1' ? 'h₁' : 'h₂');
-  const S = { kind, s: cfg.s.slice(), hk: cfg.h, hn, phase: 'ask', mistakes: 0, hints: 0, moves: 0, restarts: 0, done: false, won: false, stuck: false, showHint: false, hintLog: [], hist: [h(cfg.s)], cfg,
+  const S = { kind, s: cfg.s.slice(), hk: cfg.h, hn, phase: 'ask', mistakes: 0, hints: 0, moves: 0, restarts: 0, done: false, won: false, stuck: false, showHint: false, showAll: false, hintLog: [], hist: [h(cfg.s)], cfg,
     fb: { t: 'info', m: route ? 'Primero calcula la distancia total de la ruta inicial.' : `Primero calcula ${hn} del tablero inicial.` } };
   const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
   const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; S.hintLog = []; return { ok: true }; };
@@ -527,7 +534,10 @@ function PuzGame(cfg) {
     return good(route ? `Reinicio aleatorio: nueva ruta de ${cur()} km.` : `Reinicio aleatorio: nuevo tablero con ${hn} = ${cur()}.`);
   }
   const hint = () => { S.hints++; S.showHint = true; };
-  return { S, ask, choose, stop, rand, hint, h, cur, explain, nbs: nbf };
+  const formula = () => route ? `${S.s.slice(0, -1).map((c, i) => cfg.dist[c][S.s[i + 1]]).join(' + ')} = ${cur()} km`
+    : cfg.h === 'h1' ? `Fichas mal colocadas: ${S.s.filter((v, i) => v && v !== GOAL[i]).join(', ') || 'ninguna'} → ${cur()}`
+    : `${S.s.map((v, i) => (v && tdist(v, i) ? tdist(v, i) : null)).filter(x => x !== null).join(' + ') || '0'} = ${cur()}`;
+  return { S, ask, choose, stop, rand, hint, h, cur, explain, formula, nbs: nbf };
 }
 
 /* =====================================================================
@@ -593,6 +603,7 @@ const LEVELS = [
   { id: 'h5', w: 'hc', kind: 'puz', name: '8-puzzle con Manhattan', h: 'h2', s: [1,2,3,4,5,8,7,6,0], tip: 'Manhattan distingue mejor los estados y permitió un paso más, pero también puede atascarse. Otra salida es el reinicio aleatorio.' },
   { id: 'q0', w: 'quiz', kind: 'quiz', name: 'Examen relámpago' }
 ];
+LEVELS.forEach(l => { if (l.kind === 'search') l.cost = true; });
 const lvById = id => LEVELS.find(l => l.id === id);
 const worldLevels = w => LEVELS.filter(l => l.w === w);
 
@@ -620,11 +631,11 @@ function gridSVG(lv, S, g) {
     let fill = 'var(--n-idle)', strong = false;
     if (pathSet.has(id)) { fill = 'var(--n-path)'; strong = true; } else if (S.cur === id) { fill = 'var(--n-current)'; strong = true; } else if (resSet.has(id)) fill = 'var(--n-done)'; else if (front.has(id)) fill = 'var(--n-frontier)';
     const ink = strong ? 'var(--on-strong)' : 'var(--ink)';
-    s += `<rect x="${x + 2}" y="${y + 2}" width="${cs - 4}" height="${cs - 4}" rx="6" style="fill:${fill};stroke:${nbr.has(id) ? 'var(--amber)' : 'var(--edge)'};stroke-width:${nbr.has(id) ? 3.5 : 1.2}${nbr.has(id) ? ';stroke-dasharray:5 3' : ''}"/>`;
+    s += `<rect x="${x + 2}" y="${y + 2}" width="${cs - 4}" height="${cs - 4}" rx="6" style="fill:${fill};stroke:${nbr.has(id) ? 'var(--amber)' : id === lv.start ? 'var(--good)' : id === lv.goal ? 'var(--bad)' : 'var(--edge)'};stroke-width:${nbr.has(id) ? 3.5 : (id === lv.start || id === lv.goal) ? 3.5 : 1.2}${nbr.has(id) ? ';stroke-dasharray:5 3' : ''}"/>`;
     s += `<text x="${x + 7}" y="${y + 14}" style="fill:${ink};opacity:0.75;font-family:var(--font-data);font-size:10px">${id}</text>`;
     if (id === lv.start) s += `<text x="${x + cs / 2}" y="${y + cs / 2 + 2}" style="fill:${ink};font-weight:800;font-size:22px;text-anchor:middle;dominant-baseline:central">S</text>`;
     else if (id === lv.goal) s += `<text x="${x + cs / 2}" y="${y + cs / 2 + 2}" style="fill:${ink};font-weight:800;font-size:22px;text-anchor:middle;dominant-baseline:central">G</text>`;
-    if (lv.cost && id !== lv.start) s += `<text x="${x + cs - 8}" y="${y + cs - 8}" style="fill:${ink};font-family:var(--font-data);font-weight:700;font-size:15px;text-anchor:end">${cost[id]}</text>`;
+    if (id !== lv.start) s += `<text x="${x + cs - 8}" y="${y + cs - 8}" style="fill:${ink};font-family:var(--font-data);font-weight:700;font-size:15px;text-anchor:end">${cost[id]}</text>`;
   }
   return `<svg viewBox="0 0 640 340" role="img" aria-label="Cuadrícula del nivel: S es el inicio, G la meta y # un muro">${s}</svg>`;
 }
@@ -641,16 +652,18 @@ function graphSVG(lv, S) {
     s += `<path class="e${on ? ' on' : ''}" d="M${q.a2[0]},${q.a2[1]} Q${q.c[0]},${q.c[1]} ${q.b2[0]},${q.b2[1]}"/>`;
     if (g.directed) { const [dx, dy] = q.d2, tip = q.b2, bx = tip[0] - dx * 11, by = tip[1] - dy * 11; s += `<polygon class="ah${on ? ' on' : ''}" points="${tip[0]},${tip[1]} ${bx - dy * 5},${by + dx * 5} ${bx + dy * 5},${by - dx * 5}"/>`; }
   });
-  if (lv.cost) g.edges.forEach(e => { const q = geom(g, e); s += `<text class="w" x="${q.lab[0]}" y="${q.lab[1]}">${e[2]}</text>`; });
+  g.edges.forEach(e => { const q = geom(g, e); s += `<text class="w" x="${q.lab[0]}" y="${q.lab[1]}">${e[2]}</text>`; });
   Object.keys(g.nodes).forEach(n => {
     const [x, y] = g.nodes[n]; let cls = 'nd';
     if (pathNodes.includes(n)) cls += ' path'; else if (S.cur === n) cls += ' current'; else if (resSet.has(n)) cls += ' done'; else if (front.has(n)) cls += ' frontier';
     if (nbr.has(n)) cls += ' nbr';
     const lab = g.labels ? g.labels[n] : n;
+    if (n === lv.start) s += `<circle cx="${x}" cy="${y}" r="26" fill="none" stroke="var(--good)" stroke-width="3.5"/>`;
+    if (n === lv.goal) s += `<circle cx="${x}" cy="${y}" r="26" fill="none" stroke="var(--bad)" stroke-width="3.5"/>`;
     s += `<g class="${cls}"><circle cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}"${g.labels ? ' style="font-size:11px"' : ''}>${lab}</text></g>`;
     if (g.labels) s += `<text class="tag" x="${x}" y="${y + 35}" style="text-transform:none;letter-spacing:0">${n}</text>`;
-    if (n === lv.start) s += `<text class="tag" x="${x}" y="${g.labels ? y - 28 : y + 36}" style="fill:var(--good)">inicio</text>`;
-    if (n === lv.goal) s += `<text class="tag" x="${x}" y="${y - 28}" style="fill:var(--bad)">meta</text>`;
+    if (n === lv.start) s += `<text class="tag" x="${x}" y="${g.labels ? y - 33 : y + 43}" style="fill:var(--good)">inicio</text>`;
+    if (n === lv.goal) s += `<text class="tag" x="${x}" y="${y - 33}" style="fill:var(--bad)">meta</text>`;
   });
   return `<svg viewBox="0 0 640 340" role="img" aria-label="Grafo del nivel">${s}</svg>`;
 }
@@ -723,14 +736,14 @@ function makeFree(sel) {
     return { ...base, kind: 'puz', name: sel.board === 'puz2' ? '8-puzzle con Manhattan' : '8-puzzle con h₁', h: sel.board === 'puz2' ? 'h2' : 'h1', s: scramblePuz(10 + rnd(5)), random: true };
   }
   if (sel.board === 'grid') {
-    const gg = makeGrid(4, 4, sel.algo === 'ucs');
-    return { ...base, kind: 'search', algo: sel.algo, name: 'Cuadrícula 4×4', g: gg.g, start: '1,1', goal: '4,4', cost: sel.algo === 'ucs' };
+    const gg = makeGrid(4, 4, true);
+    return { ...base, kind: 'search', algo: sel.algo, name: 'Cuadrícula 4×4', g: gg.g, start: '1,1', goal: '4,4', cost: true };
   }
   const key = FREE_KEYS[rnd(FREE_KEYS.length)], def = GR[key], meta = FREE_META[key];
   const wf = def.labels ? () => 100 + rnd(51) * 10 : () => 1 + rnd(9);
   const g = { directed: def.directed, nodes: def.nodes, labels: def.labels, edges: def.edges.map(([u, v, , o]) => [u, v, wf(), o]) };
   buildAdj(g);
-  return { ...base, kind: 'search', algo: sel.algo, name: FREE_NAME[key], g, start: meta[0], goal: meta[1], cost: sel.algo === 'ucs' };
+  return { ...base, kind: 'search', algo: sel.algo, name: FREE_NAME[key], g, start: meta[0], goal: meta[1], cost: true };
 }
 function launch(lv) {
   ui.lv = lv;
@@ -741,7 +754,7 @@ function freePanel() {
   const f = ui.free, algos = [['bfs', 'BFS'], ['dfs', 'DFS'], ['ucs', 'UCS'], ['hc', 'Hill Climbing']];
   const boards = f.algo === 'hc' ? [['land', 'Colina con niebla'], ['puz1', '8-puzzle h₁'], ['puz2', '8-puzzle Manhattan'], ['route', 'Ruta de ciudades']] : [['graph', 'Grafo de las diapositivas'], ['grid', 'Cuadrícula (como el robot)']];
   const btn = (act, v, label, on) => `<button class="btn sm${on ? ' primary' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
-  return `<div class="panel"><h2>Partida aleatoria</h2><p class="muted">Un mapa de tus diapositivas con inicio y meta fijos. Los costos, los muros y los valores cambian en cada partida, y todo se mueve a mano.</p>
+  return `<div class="panel"><h2>Partida aleatoria</h2><p class="muted">Un grafo o cuadrícula de tus diapositivas con inicio y meta fijos. Los costos, los muros y los valores cambian en cada partida, y todo se mueve a mano.</p>
     <div class="picker"><div class="row"><span class="lab">Algoritmo</span>${algos.map(a => btn('free-algo', a[0], a[1], f.algo === a[0])).join('')}</div>
     <div class="row"><span class="lab">Tablero</span>${boards.map(b => btn('free-board', b[0], b[1], f.board === b[0])).join('')}</div>
     <div class="row"><button class="btn primary" data-act="free-new">Jugar partida aleatoria</button></div></div></div>`;
@@ -778,7 +791,7 @@ function hintPanel(game) {
    Pantallas
    ===================================================================== */
 function topbar(kicker, title, extra) {
-  return `<div class="topbar"><div class="title"><span class="kicker">${kicker}</span><h1>${title}</h1></div><div class="stats">${extra || ''}<button class="btn sm" data-act="home">Mapa</button></div></div>`;
+  return `<div class="topbar"><div class="title"><span class="kicker">${kicker}</span><h1>${title}</h1></div><div class="stats">${extra || ''}<button class="btn sm" data-act="home">Menú</button></div></div>`;
 }
 function renderHome() {
   const doneCount = LEVELS.filter(l => prog[l.id] && prog[l.id].done).length;
@@ -814,7 +827,7 @@ function renderPlay() {
   const game = ui.game, S = game.S, lv = ui.lv, a = S.algo, T = game.target(), show = (lv.guided || S.showHint) && !S.done;
   const w = WORLDS.find(x => x.id === lv.w);
   const stats = lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>`;
-  const struct = structHTML(TYPE_BY_ALGO[a], S.struct, { click: true, target: show && T.k === 'pop' ? T.i : -1, showG: a === 'ucs' });
+  const struct = structHTML(TYPE_BY_ALGO[a], S.struct, { click: true, target: show && T.k === 'pop' ? T.i : -1, showG: true });
   let action = '';
   if (S.done) action = resultCard(game);
   else if (S.phase === 'pop') action = `<div class="panel"><h2>Tu turno · sacar</h2><p>Saca un nodo de la estructura: haz clic en él.</p></div>`;
@@ -825,25 +838,37 @@ function renderPlay() {
     const g = gOf(lv);
     action = `<div class="panel"><h2>Tu turno · meter vecinos de ${S.cur}</h2><p>Haz clic en cada vecino que corresponda meter.</p><div class="tray">${g.adj[S.cur].map(e => {
       const used = S.pushed.includes(e.to);
-      return `<button class="tok sm${used ? ' used' : ''}${show && T.k === 'push' && T.n === e.to ? ' pulse' : ''}" data-act="push" data-n="${e.to}"${used ? ' disabled' : ''}>${e.dir ? e.dir + ' ' : ''}${e.to}${a === 'ucs' ? `<small>+${e.w}</small>` : ''}</button>`;
+      return `<button class="tok sm${used ? ' used' : ''}${show && T.k === 'push' && T.n === e.to ? ' pulse' : ''}" data-act="push" data-n="${e.to}"${used ? ' disabled' : ''}>${e.dir ? e.dir + ' ' : ''}${e.to}<small>+${e.w}</small></button>`;
     }).join('')}</div><button class="btn primary${show && T.k === 'finish' ? ' pulse' : ''}" data-act="finish">Terminar de meter</button></div>`;
   }
   const coach = lv.guided && !S.done ? `<div class="coach"><b class="t">Tutor</b>${coachText(game)}</div>` : '';
   const fb = S.fb ? `<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>` : '';
   const hintBtn = !lv.guided && !S.done ? hintPanel(game) : '';
+  const note = a === 'ucs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. UCS saca siempre el menor.</p>'
+    : `<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. ${a === 'bfs' ? 'BFS' : 'DFS'} no lo usa para decidir, pero sirve para comparar con UCS.</p>`;
   return `${topbar(w.name + ' · ' + lv.name, lv.algo.toUpperCase() + (lv.goal ? `: de ${lv.start} a ${lv.goal}` : `: recorrido desde ${lv.start}`), stats)}
-  <div class="game"><div class="panel">${graphSVG(lv, S)}<div class="legend"><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div></div>
-  <div class="stack"><div class="panel"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}</div>
-    ${coach}${fb}${action}
+  <div class="game"><div class="stack"><div class="panel">${graphSVG(lv, S)}<div class="legend"><span><i style="background:transparent;border:3px solid var(--good)"></i>inicio</span><span><i style="background:transparent;border:3px solid var(--bad)"></i>meta</span><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">Los números sobre las líneas son el costo de cada movimiento.</p></div>
+    <div class="panel"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}${note}</div></div>
+  <div class="stack">${fb}${coach}${action}
     <div class="panel"><h2>${a === 'ucs' ? 'Expandidos' : 'Visitados'} (orden)</h2><div class="chips">${S.result.length ? S.result.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">ninguno todavía</span>'}</div></div>
     ${hintBtn}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+}
+function minCost(g, s0, t) {
+  const d = { [s0]: 0 }, q = new Set(Object.keys(g.adj));
+  while (q.size) {
+    let u = null; q.forEach(x => { if (d[x] !== undefined && (u === null || d[x] < d[u])) u = x; });
+    if (u === null) break; q.delete(u);
+    g.adj[u].forEach(e => { if (d[e.to] === undefined || d[u] + e.w < d[e.to]) d[e.to] = d[u] + e.w; });
+  }
+  return d[t];
 }
 function resultCard(game) {
   const S = game.S, lv = ui.lv, w = WORLDS.find(x => x.id === lv.w);
   const pts = S.mistakes + S.hints * 0.5, stars = starsFor(pts);
   finishLevel(lv.guided ? 0 : stars);
   const nxt = nextLevelId();
-  const sum = S.path ? `Camino encontrado: <b class="mono">${S.path.join(' → ')}</b> (${S.path.length - 1} aristas${lv.cost ? `, costo ${S.cost}` : ''}).` : `Orden de visita: <b class="mono">${S.result.join(', ')}</b>.`;
+  const best = S.path ? minCost(gOf(lv), lv.start, lv.goal) : null;
+  const sum = S.path ? `Camino encontrado: <b class="mono">${S.path.join(' → ')}</b> (${S.path.length - 1} aristas, costo ${S.cost}). ${S.cost === best ? 'Es el camino más barato posible.' : `El camino más barato posible cuesta ${best}.`}` : `Orden de visita: <b class="mono">${S.result.join(', ')}</b>.`;
   return `<div class="panel result"><h2>Nivel completado</h2>${lv.guided ? '<h3>Tutorial superado ✓</h3>' : `<h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.hints} pistas</h3>`}
     <p>${sum}</p><p class="muted">${w.takeaway || (WORLDS.find(x => x.id === S.algo) || {}).takeaway || ''}</p>
     <div class="btns">${endBtns(nxt)}</div></div>`;
@@ -869,7 +894,8 @@ function renderSandbox() {
   return `${topbar('Taller de estructuras · Taller libre', 'Prueba las tres estructuras')}
   <div class="panel"><div class="btns" role="group" aria-label="Tipo de estructura">${['queue', 'stack', 'pq'].map(t => `<button class="btn${sb.type === t ? ' primary' : ''}" data-act="sb-type" data-t="${t}">${STRUCT_NAME[t]}</button>`).join('')}</div></div>
   <div class="game"><div class="panel"><h2>${STRUCT_NAME[sb.type]}</h2>${structHTML(sb.type, sb.items, { click: true })}
-    <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="sb-push">Meter ${String.fromCharCode(65 + sb.n % 26)}${sb.type === 'pq' ? ' con g al azar' : ''}</button><button class="btn" data-act="sb-clear">Vaciar</button></div></div>
+    <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="sb-push">Meter ${String.fromCharCode(65 + sb.n % 26)}${sb.type === 'pq' ? ' con g al azar' : ''}</button><button class="btn" data-act="sb-pop">Sacar (ver cuál sale)</button><button class="btn" data-act="sb-clear">Vaciar</button></div>
+    <p class="muted" style="margin:10px 0 0;font-size:0.88rem">1) Pulsa Meter varias veces. 2) Haz clic en el elemento que creas que saldría, o pulsa Sacar para ver cuál sale de verdad.</p></div>
   <div class="stack"><div class="fb ${sb.fb.t}" role="status">${sb.fb.m}</div>
     <div class="panel"><h2>Salidas</h2><div class="chips">${sb.out.length ? sb.out.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">nada ha salido aún</span>'}</div></div>
     <div class="btns"><button class="btn primary" data-act="sb-done">Terminar taller</button></div></div></div>`;
@@ -913,30 +939,37 @@ function renderLand() {
     ${!lv.guided && !S.done ? hintPanel(game) : ''}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
 }
 /* ---- 8-puzzle ---- */
-function boardHTML(s) { return s.map(v => `<div class="tile${v ? '' : ' hole'}">${v || ''}</div>`).join(''); }
+function boardHTML(s, hk) {
+  return s.map((v, i) => {
+    if (!v) return '<div class="tile hole"></div>';
+    const d = tdist(v, i); let cls = 'tile', sub = '';
+    if (hk === 'h1' && v !== GOAL[i]) cls += ' wrong';
+    if (hk === 'h2') { sub = `<sub>${d}</sub>`; if (d > 0) cls += ' far wrong'; }
+    return `<div class="${cls}">${v}${sub}</div>`;
+  }).join('');
+}
 function distTable(dist) {
   const n = Object.keys(dist);
   return `<div style="overflow-x:auto"><table class="dtab"><tr><th></th>${n.map(c => `<th>${c}</th>`).join('')}</tr>${n.map(r => `<tr><th>${r}</th>${n.map(c => `<td>${r === c ? '-' : dist[r][c]}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
-const routeHTML = r => `<div class="route">${r.map((c, i) => `${i ? '<span>→</span>' : ''}<span class="city">${c}</span>`).join('')}</div>`;
+const routeHTML = (r, dist) => `<div class="route">${r.map((c, i) => `${i ? `<span class="leg">→${dist ? `<small>${dist[r[i - 1]][c]}</small>` : ''}</span>` : ''}<span class="city">${c}</span>`).join('')}</div>`;
 function renderPuz() {
   const game = ui.game, S = game.S, lv = ui.lv, route = S.kind === 'route', nbs = game.nbs(S.s), hs = nbs.map(n => game.h(n.s));
-  const unit = route ? ' km' : '';
+  const unit = route ? ' km' : '', showVals = S.showHint || S.showAll, hk = route ? null : S.hk;
   let body = '';
   if (S.done) { const stars = starsFor(S.mistakes + S.hints * 0.5); finishLevel(stars); const nxt = nextLevelId();
-    body = `<div class="panel result"><h2>Nivel completado</h2><h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.hints} pistas${S.restarts ? ` · ${S.restarts} reinicios` : ''}</h3><p>Historial de ${S.hn}: <b class="mono">${S.hist.join(' → ')}</b>.</p>
+    body = `<div class="panel result"><h2>Nivel completado</h2><h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.hints} pistas${S.restarts ? ` · ${S.restarts} reinicios` : ''}</h3><p>Historial de ${S.hn}: <b class="mono">${S.hist.join(' → ')}</b>. Movimientos: ${S.moves} (cada movimiento cuesta 1).</p>
       <div class="btns">${endBtns(nxt)}</div></div>`; }
   else if (S.stuck) body = `<div class="panel"><h2>Atrapado en un óptimo local</h2><p>Hill Climbing no puede salir solo de aquí. Un reinicio aleatorio empieza de nuevo desde otro estado.</p><button class="btn primary" data-act="prand">Reinicio aleatorio</button></div>`;
-  else if (S.phase === 'ask') body = `<div class="panel"><h2>Calcula ${route ? 'la distancia total' : S.hn}</h2><p>${route ? 'Suma las distancias de cada tramo de la ruta (usa la tabla).' : S.hk === 'h1' ? 'h₁ = número de fichas (sin el hueco) que no están en su sitio.' : 'h₂ = suma, para cada ficha, de |filas| + |columnas| que le faltan.'}</p>
+  else if (S.phase === 'ask') body = `<div class="panel"><h2>Calcula ${route ? 'la distancia total' : S.hn}</h2><p>${route ? 'Suma las distancias de cada tramo de la ruta (están sobre las flechas y en la tabla).' : S.hk === 'h1' ? 'h₁ = número de fichas (sin el hueco) que no están en su sitio. Las rojas están mal colocadas.' : 'h₂ = suma, para cada ficha, de |filas| + |columnas| que le faltan. El número pequeño de cada ficha es su distancia.'}</p>
       <div class="btns"><input type="number" id="hin" min="0" max="400" aria-label="Valor de ${route ? 'la distancia' : S.hn}"><button class="btn primary" data-act="ask">Comprobar</button></div></div>`;
-  else body = `<div class="panel"><h2>Vecinos ${route ? '(se intercambian dos ciudades)' : '(se mueve el hueco)'}</h2><p>Haz clic en el vecino con menor ${route ? 'distancia' : S.hn}, o detente si ninguno mejora.</p><div class="nbs">${nbs.map((n, i) => `<button class="nb" data-act="choose" data-i="${i}">${route ? routeHTML(n.s) : `<div class="board mini">${boardHTML(n.s)}</div>`}<div>${route ? 'intercambio ' + n.name : `hueco ${n.name}<br>(ficha ${n.moved})`}</div>${S.showHint ? `<div class="hnum">${hs[i]}${unit}</div>` : ''}</button>`).join('')}</div>
-      <div class="btns" style="margin-top:10px"><button class="btn" data-act="pstop">Detenerme: ningún vecino mejora</button></div></div>`;
+  else body = `<div class="panel"><h2>Vecinos ${route ? '(se intercambian dos ciudades)' : '(se mueve el hueco)'}</h2><p>Suma lo que ves en cada vecino y haz clic en el de menor ${route ? 'distancia' : S.hn}, o detente si ninguno mejora.</p><div class="nbs">${nbs.map((n, i) => `<button class="nb" data-act="choose" data-i="${i}">${route ? routeHTML(n.s, lv.dist) : `<div class="board mini">${boardHTML(n.s, hk)}</div>`}<div>${route ? 'intercambio ' + n.name : `hueco ${n.name}<br>(ficha ${n.moved})`}</div>${showVals ? `<div class="hnum">${route ? '' : S.hn + ' = '}${hs[i]}${unit}</div>` : ''}</button>`).join('')}</div>
+      <div class="btns" style="margin-top:10px"><button class="btn" data-act="pstop">Detenerme: ningún vecino mejora</button><button class="btn sm" data-act="toggle-h" aria-pressed="${S.showAll}">${S.showAll ? 'Ocultar' : 'Mostrar'} el valor de cada vecino (modo estudio)</button></div></div>`;
   const stateBox = route
-    ? `<h2>Ruta actual</h2>${routeHTML(S.s)}<p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? 'distancia = ?' : 'distancia = ' + game.cur() + ' km'}</p><h2 style="margin-top:10px">Distancias (km)</h2>${distTable(lv.dist)}`
-    : `<h2>Estado actual</h2><div class="board">${boardHTML(S.s)}</div><p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? S.hn + ' = ?' : S.hn + ' = ' + game.cur()}</p>`;
-  const meta = route ? '<p class="muted" style="font-size:0.85rem;margin:6px 0 0">Meta: la ruta circular más corta (sale y vuelve a A).</p>' : '<p class="muted" style="font-size:0.85rem;margin:6px 0 0">Meta: 1 2 3 / 4 5 6 / 7 8 _ (h = 0).</p>';
-  return `${topbar((lv.free ? 'Partida aleatoria · ' : 'Hill Climbing · ') + lv.name, route ? 'Ruta de ciudades' : '8-puzzle', `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>${lv.free ? `<span class="pill">reinicios ${S.restarts}</span>` : ''}`)}
-  <div class="game"><div class="panel">${stateBox}${meta}<p class="muted" style="font-size:0.85rem;margin:6px 0 0">Historial: ${S.phase === 'ask' ? '—' : S.hist.join(' → ')}</p></div>
+    ? `<h2>Ruta actual (el número sobre cada flecha es el tramo)</h2>${routeHTML(S.s, lv.dist)}<p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? 'distancia = ?' : 'distancia = ' + game.cur() + ' km'}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Distancias (km)</h2>${distTable(lv.dist)}`
+    : `<h2>Estado actual</h2><div class="board">${boardHTML(S.s, hk)}</div><p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? S.hn + ' = ?' : S.hn + ' = ' + game.cur()}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Meta (h = 0)</h2><div class="board mini">${GOAL.map(v => `<div class="tile${v ? '' : ' hole'}">${v || ''}</div>`).join('')}</div>`;
+  return `${topbar((lv.free ? 'Partida aleatoria · ' : 'Hill Climbing · ') + lv.name, route ? 'Ruta de ciudades' : '8-puzzle', `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span><span class="pill">movimientos ${S.moves}</span>${lv.free ? `<span class="pill">reinicios ${S.restarts}</span>` : ''}`)}
+  <div class="game"><div class="panel">${stateBox}<p class="muted" style="font-size:0.85rem;margin:8px 0 0">Historial de ${route ? 'km' : S.hn}: ${S.phase === 'ask' ? '—' : S.hist.join(' → ')}. ${route ? 'Meta: la ruta circular más corta.' : 'Cada movimiento cuesta 1.'}</p></div>
   <div class="stack"><div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${body}
     ${!S.done ? hintPanel(game) : ''}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
 }
@@ -974,7 +1007,7 @@ function makeQuiz() {
 function renderQuiz() {
   const Q = ui.quiz;
   if (Q.i >= Q.qs.length) { const stars = Q.score >= Q.qs.length - 1 ? 3 : Q.score >= Q.qs.length * 0.7 ? 2 : 1; finishLevel(stars);
-    return `${topbar('Examen relámpago', 'Resultado')}<div class="panel card"><h3><span class="stars">${starStr(stars)}</span></h3><p>Acertaste <b>${Q.score} de ${Q.qs.length}</b>.</p><div class="btns"><button class="btn primary" data-act="retry">Otra ronda</button><button class="btn" data-act="home">Mapa</button></div></div>`; }
+    return `${topbar('Examen relámpago', 'Resultado')}<div class="panel card"><h3><span class="stars">${starStr(stars)}</span></h3><p>Acertaste <b>${Q.score} de ${Q.qs.length}</b>.</p><div class="btns"><button class="btn primary" data-act="retry">Otra ronda</button><button class="btn" data-act="home">Menú</button></div></div>`; }
   const q = Q.qs[Q.i];
   const gv = q.graph ? `<div class="panel">${graphSVG({ graph: q.graph, start: Object.keys(GR[q.graph].nodes)[0], goal: '', cost: true }, { path: null, result: [], struct: [], phase: 'pop', cur: null })}</div>` : '';
   return `${topbar('Examen relámpago', `Pregunta ${Q.i + 1} de ${Q.qs.length}`, `<span class="pill">aciertos ${Q.score}</span>`)}
@@ -1004,6 +1037,8 @@ function act(a, d) {
     case 'hint2': useHint(2); break;
     case 'hint3': useHint(3); break;
     case 'prand': g.rand(); break;
+    case 'toggle-h': g.S.showAll = !g.S.showAll; break;
+    case 'sb-pop': sbPopAuto(); break;
     case 'next': { const n = nextLevelId(); if (n) startLevel(n); else ui.screen = 'home'; break; }
     case 'pop': if (ui.screen === 'struct' || ui.screen === 'play') g.pop(+d.i); else if (ui.screen === 'sandbox') sbPop(+d.i); break;
     case 'decide': g.decide(d.v); break;
@@ -1026,6 +1061,13 @@ function act(a, d) {
     default: return;
   }
   render();
+}
+function sbPopAuto() {
+  const sb = ui.sb; if (!sb.items.length) { sb.fb = { t: 'info', m: 'No hay nada que sacar. Mete un elemento primero.' }; return; }
+  let e = 0;
+  if (sb.type === 'stack') e = sb.items.length - 1;
+  else if (sb.type === 'pq') sb.items.forEach((x, k) => { if (x.g < sb.items[e].g || (x.g === sb.items[e].g && collate(x.n, sb.items[e].n) < 0)) e = k; });
+  sbPop(e);
 }
 function sbPop(i) {
   const sb = ui.sb, it = sb.items[i]; let e = 0;
