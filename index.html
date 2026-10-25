@@ -4,53 +4,34 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Maestro de Búsqueda</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <style>
 /* Layout: mapa de mundos -> nivel. En un nivel, el grafo a la izquierda y la estructura de datos con las acciones del jugador a la derecha. */
 :root {
-  --font-ui: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --bg: #f4f5fa;
-  --surface: #ffffff;
-  --ink: #17203a;
-  --muted: #5d6685;
-  --line: #d8dcec;
-  --primary: #2456e6;
-  --on-primary: #ffffff;
-  --soft: #e6ecff;
-  --good: #12805c;
-  --good-soft: #d9f3e8;
-  --bad: #c42b2b;
-  --bad-soft: #fde2e2;
-  --amber: #f2a900;
-  --amber-soft: #fff1c9;
-  --n-idle: #e7eaf5;
-  --n-frontier: #f6d27a;
-  --n-current: #2456e6;
-  --n-done: #bfe3d2;
-  --n-path: #12805c;
-  --on-strong: #ffffff;
-  --edge: #8a93b2;
-  --w1: #7a55e8; --w2: #1d8fd1; --w3: #e0662b; --w4: #12805c; --w5: #c93d86; --w6: #6b7280;
+  --bg: #eceff5; --surface: #ffffff; --surface2: #f4f6fa; --ink: #0f172a; --muted: #566377; --line: #d8dfea;
+  --primary: #0b7a94; --on-primary: #ffffff; --soft: #d7f0f5;
+  --good: #0f8a5f; --good-soft: #d4f3e4; --bad: #d1344a; --bad-soft: #fde2e6; --amber: #d48a00; --amber-soft: #fff0c9;
+  --n-idle: #e2e8f1; --n-frontier: #f6cd62; --n-current: #0b7a94; --n-done: #b6e1cf; --n-path: #0f8a5f; --on-strong: #ffffff; --edge: #8392a7;
+  --w1: #7c5cf0; --w2: #0b7a94; --w3: #dd6b20; --w4: #0f8a5f; --w5: #d6336c; --w6: #64748b;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0e1424; --surface: #171f35; --ink: #e8ecf8; --muted: #9aa5c7; --line: #2a3556;
-    --primary: #7b9bff; --on-primary: #0a1020; --soft: #1f2c55; --good: #3fd09a; --good-soft: #14392d;
-    --bad: #ff8080; --bad-soft: #432024; --amber: #f6c244; --amber-soft: #43380f;
-    --n-idle: #27304d; --n-frontier: #a47a14; --n-current: #7b9bff; --n-done: #2b5a47; --n-path: #3fd09a;
-    --on-strong: #0a1020; --edge: #6e789c;
-    --w1: #a78bfa; --w2: #55b6ee; --w3: #f59063; --w4: #3fd09a; --w5: #ee7fb6; --w6: #9ca3af;
+    --bg: #090f17; --surface: #111924; --surface2: #162030; --ink: #e7eef8; --muted: #8b9cb4; --line: #223044;
+    --primary: #2dd4e6; --on-primary: #052229; --soft: #0f3340;
+    --good: #34d399; --good-soft: #0f3b2d; --bad: #ff7b8c; --bad-soft: #42212b; --amber: #fbbf24; --amber-soft: #3b3010;
+    --n-idle: #1b2736; --n-frontier: #b4820f; --n-current: #2dd4e6; --n-done: #1d5a48; --n-path: #34d399; --on-strong: #052229; --edge: #667790;
+    --w1: #a78bfa; --w2: #2dd4e6; --w3: #fb923c; --w4: #34d399; --w5: #f472b6; --w6: #94a3b8;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0e1424; --surface: #171f35; --ink: #e8ecf8; --muted: #9aa5c7; --line: #2a3556;
-  --primary: #7b9bff; --on-primary: #0a1020; --soft: #1f2c55; --good: #3fd09a; --good-soft: #14392d;
-  --bad: #ff8080; --bad-soft: #432024; --amber: #f6c244; --amber-soft: #43380f;
-  --n-idle: #27304d; --n-frontier: #a47a14; --n-current: #7b9bff; --n-done: #2b5a47; --n-path: #3fd09a;
-  --on-strong: #0a1020; --edge: #6e789c;
-  --w1: #a78bfa; --w2: #55b6ee; --w3: #f59063; --w4: #3fd09a; --w5: #ee7fb6; --w6: #9ca3af;
+  --bg: #090f17; --surface: #111924; --surface2: #162030; --ink: #e7eef8; --muted: #8b9cb4; --line: #223044;
+  --primary: #2dd4e6; --on-primary: #052229; --soft: #0f3340;
+  --good: #34d399; --good-soft: #0f3b2d; --bad: #ff7b8c; --bad-soft: #42212b; --amber: #fbbf24; --amber-soft: #3b3010;
+  --n-idle: #1b2736; --n-frontier: #b4820f; --n-current: #2dd4e6; --n-done: #1d5a48; --n-path: #34d399; --on-strong: #052229; --edge: #667790;
+  --w1: #a78bfa; --w2: #2dd4e6; --w3: #fb923c; --w4: #34d399; --w5: #f472b6; --w6: #94a3b8;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -225,10 +206,68 @@ input[type="number"] { font: inherit; font-family: var(--font-data); width: 84px
 .how { background: var(--soft); border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; }
 .how b.t { margin-bottom: 4px; }
 pre.code { background: var(--bg); border-radius: 10px; padding: 10px 12px; overflow-x: auto; font-family: var(--font-data); font-size: 0.82rem; margin: 0; line-height: 1.45; }
+/* ===== v2: barra lateral, paneles densos, pantalla aprovechada ===== */
+body { padding-block: 12px 20px; font-size: 15px; line-height: 1.45; }
+.shell { display: grid; grid-template-columns: 276px minmax(0, 1fr); gap: 14px; max-width: 2000px; margin: 0 auto; align-items: start; }
+.main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.side { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.side-body { display: flex; flex-direction: column; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { flex: none; width: 38px; height: 38px; border-radius: 11px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-family: var(--font-data); font-weight: 800; font-size: 0.92rem; }
+.brand b { display: block; font-size: 0.98rem; line-height: 1.15; }
+.brand small { color: var(--muted); font-size: 0.74rem; }
+.burger { display: none; margin-left: auto; }
+.nav { display: flex; flex-direction: column; gap: 3px; }
+.nbtn { font: inherit; font-weight: 700; font-size: 0.9rem; text-align: left; background: transparent; color: var(--ink); border: 0; border-radius: 9px; padding: 8px 10px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
+.nbtn:hover { background: var(--surface2); } .nbtn.on { background: var(--soft); }
+.nbtn .ico { width: 18px; text-align: center; color: var(--primary); font-family: var(--font-data); font-weight: 800; }
+.sprog { background: var(--surface2); border-radius: 10px; padding: 8px 10px; font-size: 0.82rem; font-weight: 600; }
+.sprog .bar { height: 6px; border-radius: 99px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.sprog .bar i { display: block; height: 100%; background: var(--good); }
+.sw { border-top: 1px solid var(--line); padding-top: 8px; }
+.swh { font: inherit; width: 100%; display: flex; align-items: center; gap: 8px; background: transparent; border: 0; color: var(--ink); font-weight: 700; font-size: 0.86rem; cursor: pointer; padding: 4px 2px; text-align: left; }
+.swh .badge { width: 26px; height: 26px; font-size: 0.6rem; }
+.swh .cnt { margin-left: auto; color: var(--muted); font-family: var(--font-data); font-size: 0.74rem; }
+.sl { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0 2px 34px; }
+.sl button { font: inherit; font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.sl button.done { background: var(--good-soft); border-color: transparent; }
+.sl button.cur { outline: 2px solid var(--primary); }
+.sl button:hover { border-color: var(--wc); }
+h1 { font-size: 1.35rem; } h2 { font-size: 0.72rem; margin-bottom: 6px; }
+.panel { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05); }
+.topbar { padding: 2px 2px 0; }
+.btn { border-width: 1px; border-radius: 9px; } .opt, .nb, .lvl { border-width: 1px; }
+.game { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; }
+.game.play { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-areas: "graph action" "struct action" "visited hints" "log hints"; }
+.a-graph { grid-area: graph; } .a-struct { grid-area: struct; } .a-action { grid-area: action; } .a-visited { grid-area: visited; } .a-log { grid-area: log; } .a-hints { grid-area: hints; }
+.hgrid { max-width: min(100%, 76vh); }
+.dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: stretch; }
+.dash .panel { display: flex; flex-direction: column; gap: 6px; }
+.dash .panel > .btn, .dash .panel > .btns { margin-top: auto; align-self: flex-start; }
+.worlds { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.world .head .cnt { margin-left: auto; font-family: var(--font-data); font-size: 0.78rem; color: var(--muted); }
+.introwide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: center; padding: 18px; }
+.introone { display: block; padding: 18px; max-width: 760px; }
+.introwide .big, .introone .big { font-size: 1.12rem; line-height: 1.55; }
+.xcard { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.xgrid, .xtwo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.xtwo { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 12px; }
+.xleft, .xright { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (min-width: 1360px) { .game.play { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "graph struct action" "log visited action" "log hints action"; } }
+@media (max-width: 1100px) { .shell { grid-template-columns: 236px minmax(0, 1fr); } }
+@media (max-width: 960px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: none; }
+  .side-body { display: none; } .side-body.open { display: flex; }
+  .burger { display: inline-flex; }
+  .game, .game.play { grid-template-columns: minmax(0, 1fr); }
+  .game.play { grid-template-areas: "graph" "struct" "action" "visited" "log" "hints"; }
+  .xgrid, .xtwo, .introwide { grid-template-columns: minmax(0, 1fr); }
+}
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
-<div class="wrap" id="app"></div>
+<div class="shell" id="shell"><aside class="side" id="side"></aside><main class="main" id="app"></main></div>
 
 <script>
 (function () {
@@ -840,10 +879,11 @@ function introVis(v) {
    Estado de la interfaz
    ===================================================================== */
 const app = $('app');
-const ui = { free: { algo: 'bfs', board: 'graph' }, screen: 'home', lv: null, game: null, intro: 0, sb: null, quiz: null };
+const ui = { openW: {}, sideOpen: false, free: { algo: 'bfs', board: 'graph' }, screen: 'home', lv: null, game: null, intro: 0, sb: null, quiz: null };
 function go(screen) { ui.screen = screen; render(); try { window.scrollTo(0, 0); } catch (e) { /* sin scroll */ } }
 function startLevel(id, skipIntro) {
   stopDemo();
+  prog.last = id; store.set(prog);
   let lv = lvById(id); if (lv.make) lv = { ...lv, ...lv.make() };
   ui.lv = lv;
   const w = WORLDS.find(x => x.id === lv.w);
@@ -1075,27 +1115,25 @@ function hintPanel(game) {
    Pantallas
    ===================================================================== */
 function topbar(kicker, title, extra) {
-  return `<div class="topbar"><div class="title"><span class="kicker">${kicker}</span><h1>${title}</h1></div><div class="stats">${extra || ''}<button class="btn sm" data-act="home">Menú</button></div></div>`;
+  return `<div class="topbar"><div class="title"><span class="kicker">${kicker}</span><h1>${title}</h1></div><div class="stats">${extra || ''}<button class="btn sm" data-act="home">Inicio</button></div></div>`;
 }
 function renderHome() {
   const doneCount = LEVELS.filter(l => prog[l.id] && prog[l.id].done).length;
-  const worlds = WORLDS.filter(w => !w.hidden).map(w => `<div class="panel world" style="--wc:var(${w.c})"><div class="head"><span class="badge">${w.code}</span><div><h3>${w.name}</h3><p>${w.blurb}</p></div></div>
-    <div class="lvls">${worldLevels(w.id).map(l => { const p = prog[l.id]; return `<button class="lvl${p && p.done ? ' done' : ''}" data-act="level" data-id="${l.id}">${l.name}${p && p.done ? (l.guided || l.tutorial || !p.stars ? ' ✓' : ` <span class="stars">${starStr(p.stars)}</span>`) : ''}</button>`; }).join('')}</div></div>`).join('');
-  return `<div class="topbar"><div class="title"><span class="kicker">Fundamentos de IA · Unidad 2</span><h1>Maestro de Búsqueda</h1></div><div class="stats"><span class="pill">${doneCount} de ${LEVELS.length} niveles</span></div></div>
-  ${examPanel()}
-  ${freePanel()}
-  <div class="panel"><h2>Cómo se juega</h2><div class="howto">
-    <div><b>Tú eres el algoritmo</b>No ves la solución: debes sacar y meter nodos en la estructura de datos, igual que lo haría BFS, DFS o UCS.</div>
-    <div><b>Cada error te explica</b>Si te equivocas, el juego te dice la regla de la estructura. Los errores cuentan para las estrellas.</div>
-    <div><b>Pista si te atoras</b>Una pista marca el siguiente paso correcto, pero te cuesta estrellas. Los tutoriales siempre guían.</div>
-  </div><p class="muted" style="margin-top:10px;margin-bottom:0">Orden recomendado: Taller de estructuras, BFS, DFS, UCS, Hill Climbing y el examen. Tu progreso se guarda en este navegador.</p></div>
+  const last = prog.last && lvById(prog.last), lw = last && WORLDS.find(x => x.id === last.w);
+  const worlds = WORLDS.filter(w => !w.hidden).map(w => { const lv = worldLevels(w.id), n = lv.filter(l => prog[l.id] && prog[l.id].done).length; return `<div class="panel world" style="--wc:var(${w.c})"><div class="head"><span class="badge">${w.code}</span><div><h3>${w.name}</h3><p>${w.blurb}</p></div><span class="cnt">${n}/${lv.length}</span></div>
+    <div class="lvls">${lv.map(l => { const p = prog[l.id]; return `<button class="lvl${p && p.done ? ' done' : ''}" data-act="level" data-id="${l.id}">${l.name}${p && p.done ? (l.guided || l.tutorial || !p.stars ? ' ✓' : ` <span class="stars">${starStr(p.stars)}</span>`) : ''}</button>`; }).join('')}</div></div>`; }).join('');
+  const cont = `<div class="panel"><h2>Continuar</h2>${last ? `<h3>${lw.name} · ${last.name}</h3><p class="muted">Sigue donde lo dejaste. Llevas ${doneCount} de ${LEVELS.length} niveles completados.</p><button class="btn primary" data-act="level" data-id="${last.id}">Seguir jugando</button>` : `<h3>Empieza por el Taller de estructuras</h3><p class="muted">Aprende cómo entran y salen los elementos de una cola, una pila y una cola de prioridad antes de pasar a los algoritmos.</p><button class="btn primary" data-act="level" data-id="e0">Empezar</button>`}</div>`;
+  return `<div class="topbar"><div class="title"><span class="kicker">Fundamentos de IA · Unidad 2</span><h1>Panel de estudio</h1></div><div class="stats"><span class="pill">${doneCount} de ${LEVELS.length} niveles</span></div></div>
+  <div class="dash">${cont}${freePanel()}${examPanel()}</div>
+  <div class="howto"><div><b>Tú eres el algoritmo</b>Sacas y metes nodos en la estructura de datos, igual que BFS, DFS o UCS.</div><div><b>Cada error te explica</b>El juego te dice la regla. Los errores cuentan para las estrellas.</div><div><b>Pistas y demostración</b>Una pista marca el siguiente paso; la demostración lo hace por ti, animado.</div><div><b>Orden recomendado</b>Taller, BFS, DFS, UCS, Hill Climbing y el examen. Tu progreso se guarda en este navegador.</div></div>
   <div class="worlds">${worlds}</div>`;
 }
 function renderIntro() {
   const w = WORLDS.find(x => x.id === ui.lv.w), cards = w.intro, c = cards[ui.intro], last = ui.intro === cards.length - 1;
-  return `${topbar(w.name, c.t)}<div class="panel card">${introVis(c.vis)}<p>${c.p}</p>
+  const vis = introVis(c.vis);
+  return `${topbar(w.name, c.t)}<div class="panel ${vis ? 'introwide' : 'introone'}">${vis ? `<div>${vis}</div>` : ''}<div class="introtxt"><p class="big">${c.p}</p>
     <div class="dots">${cards.map((_, i) => `<i class="${i === ui.intro ? 'on' : ''}"></i>`).join('')}</div>
-    <div class="btns">${ui.intro > 0 ? '<button class="btn" data-act="intro-prev">Anterior</button>' : ''}<button class="btn primary" data-act="intro-next">${last ? 'Empezar' : 'Siguiente'}</button></div></div>`;
+    <div class="btns">${ui.intro > 0 ? '<button class="btn" data-act="intro-prev">Anterior</button>' : ''}<button class="btn primary" data-act="intro-next">${last ? 'Empezar' : 'Siguiente'}</button></div></div></div>`;
 }
 const TYPE_BY_ALGO = { bfs: 'queue', dfs: 'stack', ucs: 'pq' };
 const GOLD = { bfs: 'Es una COLA: sale el de la izquierda.', dfs: 'Es una PILA: sale el tope.', ucs: 'Es una cola de PRIORIDAD: sale el de menor g.' };
@@ -1133,13 +1171,13 @@ function renderPlay() {
   const note = a === 'dfs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">La pila guarda lo que falta por probar. Siempre sigues por la ficha de <b>arriba</b> (la última que descubriste): por eso bajas por una rama hasta el fondo. Una ficha puede aparecer repetida (la apilaron dos vecinos distintos): la segunda vez que salga se descarta. Debajo de cada ficha dice de qué nodo viene.</p>' : a === 'ucs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. UCS saca siempre el menor.</p>'
     : `<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. ${a === 'bfs' ? 'BFS' : 'DFS'} no lo usa para decidir, pero sirve para comparar con UCS.</p>`;
   return `${topbar(w.name + ' · ' + lv.name, lv.algo.toUpperCase() + (lv.goal ? `: de ${lv.start} a ${lv.goal}` : `: recorrido desde ${lv.start}`), stats)}
-  <div class="game"><div class="stack"><div class="panel">${graphSVG(lv, S)}<div class="legend"><span><i style="background:transparent;border:3px solid var(--good)"></i>inicio</span><span><i style="background:transparent;border:3px solid var(--bad)"></i>meta</span><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">Los números sobre las líneas son el costo de cada movimiento.</p></div>
-    <div class="panel"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}${note}</div></div>
-  <div class="stack">${fb}${coach}${S.done ? demoize(action, S) : action}
-    <div class="panel"><h2>${a === 'ucs' ? 'Expandidos' : 'Visitados'} (orden)</h2><div class="chips">${S.result.length ? S.result.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">ninguno todavía</span>'}</div></div>
-    ${a === 'dfs' ? branchPanel(S) : ''}
-    <div class="panel"><h2>Lo que ha pasado</h2>${S.log.length ? `<ol class="log">${S.log.slice(-6).map(t => `<li>${t}</li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Todavía no has hecho nada. Empieza sacando el nodo inicial.</p>'}</div>
-    ${hintBtn}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
+  <div class="game play"><div class="panel a-graph">${graphSVG(lv, S)}<div class="legend"><span><i style="background:transparent;border:3px solid var(--good)"></i>inicio</span><span><i style="background:transparent;border:3px solid var(--bad)"></i>meta</span><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">Los números sobre las líneas son el costo de cada movimiento.</p></div>
+    <div class="panel a-struct"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}${note}</div>
+    <div class="stack a-action">${fb}${coach}${S.done ? demoize(action, S) : action}</div>
+    <div class="stack a-visited"><div class="panel"><h2>${a === 'ucs' ? 'Expandidos' : 'Visitados'} (orden)</h2><div class="chips">${S.result.length ? S.result.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">ninguno todavía</span>'}</div></div>
+      ${a === 'dfs' ? branchPanel(S) : ''}</div>
+    <div class="panel a-log"><h2>Lo que ha pasado</h2>${S.log.length ? `<ol class="log">${S.log.slice(-6).map(t => `<li>${t}</li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Todavía no has hecho nada. Empieza sacando el nodo inicial.</p>'}</div>
+    <div class="stack a-hints">${hintBtn}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
 }
 function branchPanel(S) {
   return `<div class="panel"><h2>Rama actual (de dónde vienes)</h2><div class="chips">${S.branch.map((n, i) => `${i ? '<span class="muted">›</span>' : ''}<span class="chip res">${n}</span>`).join('')}</div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">En el grafo, la rama actual se dibuja en azul. Si llegas a un callejón sin salida, la pila te hace retroceder.</p></div>`;
@@ -1318,7 +1356,7 @@ function makeQuiz() {
 function renderQuiz() {
   const Q = ui.quiz;
   if (Q.i >= Q.qs.length) { const stars = Q.score >= Q.qs.length - 1 ? 3 : Q.score >= Q.qs.length * 0.7 ? 2 : 1; finishLevel(stars);
-    return `${topbar('Examen relámpago', 'Resultado')}<div class="panel card"><h3><span class="stars">${starStr(stars)}</span></h3><p>Acertaste <b>${Q.score} de ${Q.qs.length}</b>.</p><div class="btns"><button class="btn primary" data-act="retry">Otra ronda</button><button class="btn" data-act="home">Menú</button></div></div>`; }
+    return `${topbar('Examen relámpago', 'Resultado')}<div class="panel card"><h3><span class="stars">${starStr(stars)}</span></h3><p>Acertaste <b>${Q.score} de ${Q.qs.length}</b>.</p><div class="btns"><button class="btn primary" data-act="retry">Otra ronda</button><button class="btn" data-act="home">Inicio</button></div></div>`; }
   const q = Q.qs[Q.i];
   const gv = q.graph ? `<div class="panel">${graphSVG({ graph: q.graph, start: Object.keys(GR[q.graph].nodes)[0], goal: '', cost: true }, { path: null, result: [], struct: [], phase: 'pop', cur: null })}</div>` : '';
   return `${topbar('Examen relámpago', `Pregunta ${Q.i + 1} de ${Q.qs.length}`, `<span class="pill">aciertos ${Q.score}</span>`)}
@@ -1671,20 +1709,21 @@ function examQuestionBody(ex, q, a, study) {
 function renderExam() {
   const ex = ui.exam, n = ex.qs.length, c = t => ex.qs.filter(q => q.type === t).length;
   if (ex.stage === 'start') {
-    return `${topbar('Examen teórico', `${n} preguntas al azar`)}<div class="panel card"><h3>Examen generado: ${n} preguntas</h3>
-      <p>La cantidad es aleatoria (entre 12 y 40). Las preguntas y las opciones salen en orden aleatorio y se basan en tu presentación, en los artículos de GeeksforGeeks y en el código de clase de BFS, DFS, UCS y Hill Climbing.</p>
+    return `${topbar('Examen teórico', `${n} preguntas al azar`)}<div class="xtwo"><div class="panel"><h3>Examen generado: ${n} preguntas</h3>
+      <p>La cantidad es aleatoria (entre 12 y 40). Las preguntas y las opciones salen en orden aleatorio y se basan en tu presentación, en los artículos de GeeksforGeeks, en el código de clase y en casos prácticos de BFS, DFS, UCS y Hill Climbing.</p>
       <p class="muted">Tipos en este examen: ${c('mc')} de opción múltiple, ${c('tf')} de verdadero o falso, ${c('short')} de respuesta corta y ${c('open')} abiertas.</p>
-      <div class="how"><b class="t">Cómo funciona</b><ol style="margin:4px 0 0;padding-left:20px"><li>Cada pregunta trae un <b>contexto</b> que describe la situación (y a veces un grafo, un tablero, una tabla o código).</li><li>Debajo de la pregunta, un recuadro <b>"Qué debes hacer"</b> te dice cómo responder según el tipo.</li><li>Pulsa <b>Responder</b>. En modo estudio verás al instante si acertaste y por qué; en modo examen, al final.</li><li>Las preguntas abiertas se califican por palabras clave y puedes ajustar tu calificación.</li></ol></div>
-      <h2 style="margin-top:6px">Modo</h2><div class="btns" role="group" aria-label="Modo">
+      <h2 style="margin-top:10px">Modo</h2><div class="btns" role="group" aria-label="Modo">
         <button class="btn${ex.mode === 'study' ? ' primary' : ''}" data-act="exam-mode" data-v="study" aria-pressed="${ex.mode === 'study'}">Estudio: ver la respuesta al instante</button>
         <button class="btn${ex.mode === 'exam' ? ' primary' : ''}" data-act="exam-mode" data-v="exam" aria-pressed="${ex.mode === 'exam'}">Examen: resultados al final</button></div>
-      <div class="btns" style="margin-top:6px"><button class="btn primary" data-act="exam-start">Empezar</button><button class="btn" data-act="exam-new">Generar otro examen</button></div></div>`;
+      <div class="btns" style="margin-top:10px"><button class="btn primary" data-act="exam-start">Empezar</button><button class="btn" data-act="exam-new">Generar otro examen</button></div></div>
+      <div class="how"><b class="t">Cómo funciona</b><ol style="margin:4px 0 0;padding-left:20px"><li>Cada pregunta trae un <b>contexto</b> que describe la situación (y a veces un grafo, un tablero, una tabla o código).</li><li>Un recuadro <b>"Qué debes hacer"</b> te dice cómo responder según el tipo de pregunta.</li><li>Pulsa <b>Responder</b>. En modo estudio verás al instante si acertaste y por qué; en modo examen, al final.</li><li>Las preguntas abiertas se califican por palabras clave y puedes ajustar tu calificación.</li></ol></div></div>`;
   }
   if (ex.stage === 'result') return examResult(ex);
   const q = ex.qs[ex.i], a = ex.ans[ex.i], study = ex.mode === 'study', pct = Math.round(((ex.i + (a && study ? 1 : 0)) / n) * 100);
   return `${topbar('Examen teórico · ' + TOPICS[q.topic], `Pregunta ${ex.i + 1} de ${n}`, `<span class="pill">${ex.mode === 'study' ? 'modo estudio' : 'modo examen'}</span>`)}
-  <div class="panel card"><div class="xbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
-    <span class="xtag">${TYPE_LAB[q.type]}</span>${ctxHTML(q)}${q.vis ? `<div class="vis" style="overflow-x:auto">${q.vis}</div>` : ''}<h3>${q.q}</h3>${howHTML(q)}${examQuestionBody(ex, q, a, study)}</div>`;
+  <div class="panel xcard"><div class="xbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+    <div class="xgrid"><div class="xleft"><span class="xtag">${TYPE_LAB[q.type]}</span>${ctxHTML(q)}${q.vis ? `<div class="vis" style="overflow-x:auto">${q.vis}</div>` : ''}</div>
+    <div class="xright"><h3>${q.q}</h3>${howHTML(q)}${examQuestionBody(ex, q, a, study)}</div></div></div>`;
 }
 function examResult(ex) {
   const n = ex.qs.length, total = ex.ans.reduce((s, a) => s + (a ? a.score : 0), 0), pct = Math.round((total / n) * 100);
@@ -1693,17 +1732,32 @@ function examResult(ex) {
   const rev = ex.qs.map((q, i) => { const a = ex.ans[i], ok = a && a.score === 1, part = a && a.score === 0.5;
     return `<details class="rev"><summary><span class="pill${ok ? '' : ' err'}" style="${ok ? 'background:var(--good-soft);color:var(--good)' : ''}">${ok ? '✓' : part ? '½' : '✗'}</span> ${i + 1}. ${q.q.length > 110 ? q.q.slice(0, 110) + '…' : q.q}</summary>
       <div class="revbody">${ctxHTML(q)}${q.vis ? `<div class="vis" style="overflow-x:auto">${q.vis}</div>` : ''}<p><b>${q.q}</b></p><p>Tu respuesta: <b>${examYourText(q, a)}</b></p>${q.type === 'open' ? (a ? openFeedback(q, a, i, true) : `<p><b>Respuesta modelo:</b> ${q.model}</p>`) : `<p>Respuesta correcta: <b>${examCorrectText(q)}</b></p><p class="muted">${q.why || ''}</p>`}</div></details>`; }).join('');
-  return `${topbar('Examen teórico', 'Resultado')}<div class="panel card"><h3>${total % 1 ? total.toFixed(1) : total} de ${n} puntos · ${pct}%</h3>
+  return `${topbar('Examen teórico', 'Resultado')}<div class="xtwo"><div class="panel"><h3>${total % 1 ? total.toFixed(1) : total} de ${n} puntos · ${pct}%</h3>
     <p class="muted">${pct >= 90 ? 'Excelente: estás muy bien preparado.' : pct >= 70 ? 'Buen nivel. Repasa los temas con menor porcentaje.' : 'Repasa la presentación y practica con los niveles del juego antes del examen.'} Las preguntas abiertas se calificaron por palabras clave; puedes ajustar su calificación abajo.</p>
     <div class="tbl-wrap" style="overflow-x:auto"><table class="dtab" style="width:100%"><tr><th style="text-align:left">Tema</th><th>Puntos</th><th>%</th></tr>${rows}</table></div>
-    <div class="btns"><button class="btn primary" data-act="exam-new">Nuevo examen aleatorio</button><button class="btn" data-act="home">Menú</button></div></div>
-    <div class="panel"><h2>Revisión pregunta por pregunta</h2>${rev}</div>`;
+    <div class="btns"><button class="btn primary" data-act="exam-new">Nuevo examen aleatorio</button><button class="btn" data-act="home">Inicio</button></div></div>
+    <div class="panel"><h2>Revisión pregunta por pregunta</h2>${rev}</div></div>`;
 }
 const examPanel = () => `<div class="panel"><h2>Examen teórico aleatorio</h2><p class="muted">Entre 12 y 40 preguntas al azar (opción múltiple, verdadero o falso, respuesta corta y abiertas), basadas en tu presentación y en BFS, DFS, UCS y Hill Climbing. Cada examen es distinto.</p><button class="btn primary" data-act="exam-new">Generar examen</button></div>`;
 
+function renderSide() {
+  const done = LEVELS.filter(l => prog[l.id] && prog[l.id].done).length, pct = Math.round(done / LEVELS.length * 100);
+  const cur = ui.lv && ui.lv.id, curW = ui.lv && ui.lv.w;
+  const nav = (act, ico, label, on) => `<button class="nbtn${on ? ' on' : ''}" data-act="${act}"><span class="ico">${ico}</span>${label}</button>`;
+  const worlds = WORLDS.filter(w => !w.hidden).map(w => {
+    const lv = worldLevels(w.id), n = lv.filter(l => prog[l.id] && prog[l.id].done).length;
+    const open = ui.openW[w.id] !== undefined ? ui.openW[w.id] : (curW === w.id && ui.screen !== 'home' && ui.screen !== 'exam');
+    return `<div class="sw" style="--wc:var(${w.c})"><button class="swh" data-act="side-world" data-id="${w.id}" aria-expanded="${open}"><span class="badge">${w.code}</span>${w.name}<span class="cnt">${n}/${lv.length}</span></button>${open ? `<div class="sl">${lv.map(l => `<button class="${prog[l.id] && prog[l.id].done ? 'done ' : ''}${cur === l.id && ui.screen !== 'home' ? 'cur' : ''}" data-act="level" data-id="${l.id}">${l.name}</button>`).join('')}</div>` : ''}</div>`;
+  }).join('');
+  return `<div class="brand"><span class="logo">MB</span><div><b>Maestro de Búsqueda</b><small>Fundamentos de IA · Unidad 2</small></div><button class="btn sm burger" data-act="side-toggle" aria-label="Abrir el menú">☰</button></div>
+    <div class="side-body${ui.sideOpen ? ' open' : ''}"><div class="nav">${nav('home', '⌂', 'Inicio', ui.screen === 'home')}${nav('free-new', '⚄', 'Partida aleatoria', ui.lv && ui.lv.free && ui.screen !== 'exam')}${nav('exam-new', '✎', 'Examen teórico', ui.screen === 'exam')}</div>
+    <div class="sprog">${done} de ${LEVELS.length} niveles<div class="bar"><i style="width:${pct}%"></i></div></div>${worlds}</div>`;
+}
+let lastSide = '';
 function render() {
   const f = { exam: renderExam, home: renderHome, intro: renderIntro, play: renderPlay, struct: renderStruct, sandbox: renderSandbox, land: renderLand, puz: renderPuz, quiz: renderQuiz }[ui.screen];
   app.innerHTML = f();
+  const sd = $('side'), sh = renderSide(); if (sd && sh !== lastSide) { sd.innerHTML = sh; lastSide = sh; }
   if (ui.screen === 'intro') startIntroAnim(); else stopIntro();
 }
 
@@ -1713,19 +1767,21 @@ function render() {
 function doAct(a, d) {
   const g = ui.game;
   switch (a) {
-    case 'home': ui.screen = 'home'; break;
-    case 'level': startLevel(d.id); return;
+    case 'home': ui.screen = 'home'; ui.sideOpen = false; break;
+    case 'side-toggle': ui.sideOpen = !ui.sideOpen; break;
+    case 'side-world': ui.openW[d.id] = !(ui.openW[d.id] !== undefined ? ui.openW[d.id] : (ui.lv && ui.lv.w === d.id && ui.screen !== 'home' && ui.screen !== 'exam')); break;
+    case 'level': ui.sideOpen = false; startLevel(d.id); return;
     case 'intro-prev': ui.intro = Math.max(0, ui.intro - 1); break;
     case 'intro-next': { const w = WORLDS.find(x => x.id === ui.lv.w); if (ui.intro >= w.intro.length - 1) return startLevel(ui.lv.id, true); ui.intro++; break; }
     case 'retry': if (ui.lv.free) launch(makeFree(ui.lv.sel, ui.lv.mapKey)); else startLevel(ui.lv.id, true); return;
     case 'free-algo': ui.free.algo = d.v; ui.free.board = d.v === 'hc' ? 'land' : (ui.free.board === 'grid' ? 'grid' : 'graph'); break;
     case 'free-board': ui.free.board = d.v; break;
-    case 'free-new': launch(makeFree(ui.free)); return;
+    case 'free-new': ui.sideOpen = false; launch(makeFree(ui.free)); return;
     case 'hint1': useHint(1); break;
     case 'hint2': useHint(2); break;
     case 'hint3': useHint(3); break;
     case 'prand': g.rand(); break;
-    case 'exam-new': ui.exam = buildExam(); ui.screen = 'exam'; break;
+    case 'exam-new': ui.exam = buildExam(); ui.screen = 'exam'; ui.sideOpen = false; break;
     case 'exam-mode': ui.exam.mode = d.v; break;
     case 'exam-start': Object.assign(ui.exam, { stage: 'q', i: 0, ans: [], sel: null, note: '' }); break;
     case 'exam-pick': ui.exam.sel = d.v !== undefined ? d.v === '1' : +d.i; ui.exam.note = ''; break;
@@ -1780,7 +1836,7 @@ function sbPop(i) {
   if (i !== e) { const t = sb.items[e]; sb.fb = { t: 'err', m: { queue: `En una COLA sale el primero que entró: ${t.n}.`, stack: `En una PILA sale el último que entró: ${t.n}.`, pq: `En una cola de prioridad sale el de menor g: ${t.n} (g = ${t.g}).` }[sb.type] }; return; }
   sb.items.splice(i, 1); sb.out.push(it.n); sb.fb = { t: 'ok', m: `Sale ${it.n}. Correcto.` };
 }
-app.addEventListener('click', e => {
+($('shell') || app).addEventListener('click', e => {
   const t = e.target.closest ? e.target.closest('[data-act]') : null;
   if (!t || t.disabled) return;
   if (demo.on && !['demo', 'home'].includes(t.dataset.act)) return;
