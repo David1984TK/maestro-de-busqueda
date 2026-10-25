@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maestro de Búsqueda</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: mapa de mundos -> nivel. En un nivel, el grafo a la izquierda y la estructura de datos con las acciones del jugador a la derecha. */
+:root {
+  --font-ui: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #f4f5fa;
+  --surface: #ffffff;
+  --ink: #17203a;
+  --muted: #5d6685;
+  --line: #d8dcec;
+  --primary: #2456e6;
+  --on-primary: #ffffff;
+  --soft: #e6ecff;
+  --good: #12805c;
+  --good-soft: #d9f3e8;
+  --bad: #c42b2b;
+  --bad-soft: #fde2e2;
+  --amber: #f2a900;
+  --amber-soft: #fff1c9;
+  --n-idle: #e7eaf5;
+  --n-frontier: #f6d27a;
+  --n-current: #2456e6;
+  --n-done: #bfe3d2;
+  --n-path: #12805c;
+  --on-strong: #ffffff;
+  --edge: #8a93b2;
+  --w1: #7a55e8; --w2: #1d8fd1; --w3: #e0662b; --w4: #12805c; --w5: #c93d86; --w6: #6b7280;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1424; --surface: #171f35; --ink: #e8ecf8; --muted: #9aa5c7; --line: #2a3556;
+    --primary: #7b9bff; --on-primary: #0a1020; --soft: #1f2c55; --good: #3fd09a; --good-soft: #14392d;
+    --bad: #ff8080; --bad-soft: #432024; --amber: #f6c244; --amber-soft: #43380f;
+    --n-idle: #27304d; --n-frontier: #a47a14; --n-current: #7b9bff; --n-done: #2b5a47; --n-path: #3fd09a;
+    --on-strong: #0a1020; --edge: #6e789c;
+    --w1: #a78bfa; --w2: #55b6ee; --w3: #f59063; --w4: #3fd09a; --w5: #ee7fb6; --w6: #9ca3af;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1424; --surface: #171f35; --ink: #e8ecf8; --muted: #9aa5c7; --line: #2a3556;
+  --primary: #7b9bff; --on-primary: #0a1020; --soft: #1f2c55; --good: #3fd09a; --good-soft: #14392d;
+  --bad: #ff8080; --bad-soft: #432024; --amber: #f6c244; --amber-soft: #43380f;
+  --n-idle: #27304d; --n-frontier: #a47a14; --n-current: #7b9bff; --n-done: #2b5a47; --n-path: #3fd09a;
+  --on-strong: #0a1020; --edge: #6e789c;
+  --w1: #a78bfa; --w2: #55b6ee; --w3: #f59063; --w4: #3fd09a; --w5: #ee7fb6; --w6: #9ca3af;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 48px; }
+.wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 800; margin-bottom: 8px; }
+h3 { font-size: 1.15rem; font-weight: 800; }
+p { margin: 0 0 8px; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.btn { font: inherit; font-weight: 700; background: var(--surface); color: var(--ink); border: 2px solid var(--line); border-radius: 10px; padding: 8px 15px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--primary); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.btn.sm { padding: 5px 11px; font-size: 0.9rem; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.panel { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-data); }
+/* barra superior */
+.topbar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
+.topbar .title { display: flex; flex-direction: column; min-width: 0; }
+.topbar .kicker { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 800; color: var(--muted); }
+.stats { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-family: var(--font-data); font-size: 0.85rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--soft); }
+.pill.err { background: var(--bad-soft); color: var(--bad); }
+/* mapa */
+.worlds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.world { display: flex; flex-direction: column; gap: 10px; }
+.world .head { display: flex; gap: 12px; align-items: center; }
+.badge { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: var(--wc); font-family: var(--font-data); font-size: 0.95rem; }
+:root[data-theme="dark"] .badge { color: #0a1020; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge { color: #0a1020; } }
+.world p { color: var(--muted); font-size: 0.92rem; margin: 0; }
+.lvls { display: flex; flex-wrap: wrap; gap: 8px; }
+.lvl { font: inherit; font-weight: 700; font-size: 0.9rem; background: var(--surface); color: var(--ink); border: 2px solid var(--line); border-radius: 10px; padding: 6px 11px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.lvl:hover { border-color: var(--wc); }
+.lvl.done { background: var(--good-soft); border-color: transparent; }
+.stars { color: var(--amber); letter-spacing: 1px; font-size: 0.95rem; }
+.howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.howto div { background: var(--soft); border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; }
+.howto b { display: block; }
+/* nivel */
+.game { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 860px) { .game { grid-template-columns: minmax(0, 1fr); } }
+svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--line); }
+.e { fill: none; stroke: var(--edge); stroke-width: 1.8; } .e.on { stroke: var(--n-path); stroke-width: 4.5; }
+.ah { fill: var(--edge); } .ah.on { fill: var(--n-path); }
+.w { font-family: var(--font-data); font-size: 12px; font-weight: 700; fill: var(--ink); stroke: var(--surface); stroke-width: 4px; paint-order: stroke; text-anchor: middle; dominant-baseline: central; }
+.nd circle { stroke: var(--edge); stroke-width: 1.5; fill: var(--n-idle); }
+.nd text { font-family: var(--font-data); font-size: 15px; font-weight: 700; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.nd.frontier circle { fill: var(--n-frontier); } .nd.done circle { fill: var(--n-done); }
+.nd.current circle { fill: var(--n-current); stroke: var(--ink); stroke-width: 3; } .nd.path circle { fill: var(--n-path); }
+.nd.current text, .nd.path text { fill: var(--on-strong); }
+.nd.nbr circle { stroke: var(--amber); stroke-width: 3.5; stroke-dasharray: 5 3; }
+.tag { font-family: var(--font-ui); font-size: 11px; font-weight: 800; fill: var(--muted); text-anchor: middle; text-transform: uppercase; letter-spacing: 0.05em; }
+/* estructuras */
+.tok { font-family: var(--font-data); font-weight: 700; font-size: 1.05rem; min-width: 46px; min-height: 46px; padding: 4px 10px; border-radius: 10px; background: var(--n-frontier); color: var(--ink);
+  border: 2px solid var(--ink); cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; animation: pop 0.18s ease-out; }
+.tok small { font-size: 0.68rem; font-weight: 500; }
+.tok.sm { min-width: 40px; min-height: 40px; font-size: 0.95rem; background: var(--n-idle); }
+.tok.used { opacity: 0.35; cursor: default; }
+.tok.static { cursor: default; }
+@keyframes pop { from { transform: scale(0.6); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+.qwrap { display: flex; align-items: center; gap: 8px; }
+.qrow { display: flex; gap: 6px; flex: 1; min-height: 62px; padding: 7px; border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); overflow-x: auto; align-items: center; }
+.qlab { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); text-align: center; line-height: 1.2; flex: none; width: 52px; }
+.swrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.scol { display: flex; flex-direction: column; gap: 5px; min-height: 90px; width: 160px; padding: 8px 8px 8px; border-left: 3px solid var(--ink); border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); border-radius: 0 0 10px 10px; align-items: stretch; justify-content: flex-start; }
+.scol .tok { width: 100%; }
+.bag { display: flex; flex-wrap: wrap; gap: 8px; min-height: 70px; padding: 10px; border: 3px dashed var(--ink); border-radius: 12px; align-items: center; }
+.sempty { color: var(--muted); font-style: italic; font-size: 0.88rem; margin: auto; }
+.pulse { animation: pulse 1s ease-in-out infinite; outline: 3px solid var(--amber); outline-offset: 2px; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,169,0,0.7); } 50% { box-shadow: 0 0 0 9px rgba(242,169,0,0); } }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px; align-items: center; }
+.chip { font-family: var(--font-data); font-size: 0.86rem; padding: 2px 9px; border-radius: 6px; background: var(--n-idle); border: 1px solid var(--line); }
+.chip.res { background: var(--n-done); border-color: transparent; }
+.empty { color: var(--muted); font-style: italic; font-size: 0.86rem; }
+.fb { border-radius: 10px; padding: 10px 12px; font-weight: 600; background: var(--soft); }
+.fb.ok { background: var(--good-soft); } .fb.err { background: var(--bad-soft); animation: shake 0.3s; }
+@keyframes shake { 20% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 80% { transform: translateX(-3px); } }
+.coach { border: 2px solid var(--amber); background: var(--amber-soft); border-radius: 12px; padding: 10px 12px; }
+.coach b.t { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.tray { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.prog { font-family: var(--font-data); font-size: 0.82rem; background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.prog .cur { background: var(--amber-soft); font-weight: 700; border-radius: 4px; padding: 0 4px; }
+.prog .past { color: var(--muted); }
+.result h3 { margin-bottom: 4px; }
+/* intro */
+.card { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.card .vis { background: var(--bg); border-radius: 12px; padding: 14px; overflow-x: auto; }
+.dots { display: flex; gap: 6px; justify-content: center; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--primary); }
+/* colina */
+.bar { fill: var(--n-done); stroke: var(--edge); stroke-width: 1; } .bar.fog { fill: var(--n-idle); opacity: 0.55; stroke: none; }
+.bar.here { fill: var(--n-current); } .bar.glob { fill: var(--n-path); } .bar.loc { fill: var(--n-frontier); }
+.vl { font-family: var(--font-data); font-size: 13px; font-weight: 700; fill: var(--ink); text-anchor: middle; }
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 230px; }
+.board.mini { max-width: 104px; gap: 3px; }
+.tile { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; background: var(--n-idle); border: 2px solid var(--line); border-radius: 8px; font-family: var(--font-data); font-weight: 700; font-size: 1.5rem; }
+.mini .tile { font-size: 0.9rem; border-width: 1.5px; border-radius: 5px; }
+.tile.hole { background: transparent; border-style: dashed; }
+.nbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.nb { font: inherit; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 5px; align-items: center; font-size: 0.8rem; text-align: center; cursor: pointer; }
+.nb:hover { border-color: var(--primary); }
+.hnum { font-family: var(--font-data); font-weight: 700; }
+input[type="number"] { font: inherit; font-family: var(--font-data); width: 84px; padding: 7px 9px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+/* quiz */
+.opts { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.opt { font: inherit; font-weight: 600; text-align: left; background: var(--surface); color: var(--ink); border: 2px solid var(--line); border-radius: 10px; padding: 10px 13px; cursor: pointer; }
+.opt:hover:not(:disabled) { border-color: var(--primary); }
+.opt.right { background: var(--good-soft); border-color: var(--good); } .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+.opt:disabled { cursor: default; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+const collate = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+const rnd = n => Math.floor(Math.random() * n);
+
+/* ---------- progreso guardado (solo conveniencia del navegador) ---------- */
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem('maestro-busqueda') || '{}'); } catch (e) { return {}; } },
+  set(o) { try { localStorage.setItem('maestro-busqueda', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
+};
+let prog = store.get();
+const saveLevel = (id, stars) => { const old = prog[id] || { stars: 0 }; prog[id] = { done: true, stars: Math.max(old.stars || 0, stars) }; store.set(prog); };
+const starStr = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+const starsFor = pts => (pts <= 0 ? 3 : pts <= 2 ? 2 : 1);
+
+/* =====================================================================
+   Datos: grafos
+   ===================================================================== */
+const GR = {
+  tree: { directed: false, nodes: { A: [320,40], B: [200,130], C: [440,130], D: [130,225], E: [270,225], F: [440,225], G: [90,310] },
+    edges: [['A','B',1],['A','C',1],['B','D',1],['B','E',1],['C','F',1],['D','G',1]] },
+  g41R: { directed: false, nodes: { A: [80,190], B: [250,70], C: [250,300], D: [520,70], E: [520,300] },
+    edges: [['A','B',1],['A','C',1],['B','C',1],['B','D',1],['C','E',1],['D','E',1]] },
+  g41L: { directed: false, nodes: { '0': [320,40], '3': [190,110], '1': [450,110], '2': [320,190], '4': [190,270], '5': [450,270], '6': [320,320] },
+    edges: [['0','1',1],['0','3',1],['1','2',1],['1','5',1],['1','6',1,{bend:-60}],['2','3',1],['2','4',1],['2','5',1],['3','4',1],['4','6',1]] },
+  d44: { directed: true, nodes: { A: [50,200], B: [165,120], C: [260,290], D: [290,120], G: [410,115], E: [540,55], F: [420,210], H: [590,210] },
+    edges: [['A','B',1],['A','C',8],['B','D',1],['B','E',3,{bend:70}],['C','F',2],['D','F',1],['D','G',6],['E','H',7],['F','B',2],['F','H',2],['G','E',1]] },
+  d45: { directed: true, nodes: { A: [50,170], B: [160,110], C: [300,35], D: [160,230], E: [300,175], F: [430,110], G: [300,290], H: [430,205], I: [430,300], J: [580,170] },
+    edges: [['A','B',2],['A','C',9,{bend:70}],['A','D',1],['B','E',3],['B','F',8],['C','J',12,{bend:50}],['D','E',1],['D','G',7],['E','F',1],['E','H',5],['F','J',2],['G','H',1],['G','I',4],['H','J',1],['I','J',6]] },
+  d42: { directed: true, nodes: { S: [60,270], A: [170,170], B: [300,60], C: [300,230], D: [440,150], G: [570,270] },
+    edges: [['S','A',1],['S','G',12,{bend:-50}],['A','B',3],['A','C',1],['B','D',3],['C','D',1],['C','G',2],['D','G',3]] },
+  u13: { directed: false, nodes: { S: [50,170], A: [170,60], B: [330,60], C: [490,60], D: [200,285], E: [340,285], F: [480,285], G: [590,190] },
+    edges: [['S','A',3],['S','D',4],['A','B',4],['A','D',5],['B','C',4],['B','E',5],['D','E',2],['E','F',4],['F','G',3]] },
+  u43: { directed: false, nodes: { A: [60,170], B: [220,60], C: [220,285], D: [430,60], E: [430,285], F: [580,170] },
+    edges: [['A','B',9],['A','C',4],['B','C',2],['B','D',7],['B','E',3,{lt:0.3}],['C','D',1,{lt:0.3}],['C','E',6],['D','E',4],['D','F',8],['E','F',2]] }
+};
+Object.values(GR).forEach(g => {
+  g.adj = {}; Object.keys(g.nodes).forEach(n => (g.adj[n] = []));
+  g.edges.forEach(([u, v, w]) => { g.adj[u].push({ to: v, w }); if (!g.directed) g.adj[v].push({ to: u, w }); });
+  Object.keys(g.adj).forEach(n => g.adj[n].sort((a, b) => collate(a.to, b.to)));
+});
+
+/* =====================================================================
+   Motor: BFS / DFS / UCS jugados a mano
+   ===================================================================== */
+function SearchGame(lv) {
+  const g = GR[lv.graph], adj = g.adj, algo = lv.algo, goal = lv.goal || '';
+  const S = { algo, goal, struct: [{ n: lv.start, g: 0, path: [lv.start] }], visited: algo === 'bfs' ? [lv.start] : [], result: [], cur: null, curItem: null,
+    phase: 'pop', expectDecision: null, expectPush: [], pushed: [], done: false, won: false, path: null, cost: null, mistakes: 0, hints: 0, fb: null, showHint: false, steps: 0 };
+  const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
+  const info = m => { S.fb = { t: 'info', m }; return { ok: false }; };
+  const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; return { ok: true }; };
+  const cmp = (a, b) => a.g - b.g || collate(a.n, b.n) || collate(a.path.join(), b.path.join());
+  const word = algo === 'ucs' ? 'expandido' : 'visitado';
+  function expectedPop() {
+    if (algo === 'bfs') return 0;
+    if (algo === 'dfs') return S.struct.length - 1;
+    let b = 0; S.struct.forEach((it, i) => { if (cmp(it, S.struct[b]) < 0) b = i; }); return b;
+  }
+  function checkEmpty() {
+    if (S.phase === 'pop' && S.struct.length === 0) {
+      S.done = true; S.won = !goal;
+      S.fb = { t: goal ? 'err' : 'ok', m: goal ? `La estructura quedó vacía y ${goal} no apareció.` : 'La estructura quedó vacía: recorriste todo lo alcanzable.' };
+    }
+  }
+  function win(item) { S.done = true; S.won = true; S.path = item.path; S.cost = item.g; }
+  function pop(i) {
+    if (S.done) return { ok: false };
+    if (S.phase !== 'pop') return info('Primero termina el paso actual; sacar viene después.');
+    const e = expectedPop();
+    if (i !== e) {
+      const it = S.struct[e];
+      return err({ bfs: `En una COLA sale el que lleva más tiempo esperando: el de la izquierda (${it.n}).`,
+        dfs: `En una PILA sale el último que entró: el tope (${it.n}).`,
+        ucs: `En la cola de prioridad sale el de menor costo acumulado g: ${it.n}, con g = ${it.g}.` }[algo]);
+    }
+    const item = S.struct.splice(i, 1)[0]; S.cur = item.n; S.curItem = item; S.steps++; S.pushed = [];
+    if (algo === 'bfs') {
+      S.result.push(item.n);
+      if (goal && item.n === goal) { win(item); return good(`Sacaste ${item.n}: ¡es el objetivo!`); }
+      S.expectPush = adj[item.n].filter(e2 => !S.visited.includes(e2.to)); S.phase = 'push';
+      return good(`Sacaste ${item.n} (el primero de la cola). Ahora mete sus vecinos que aún no estén visitados.`);
+    }
+    if (algo === 'ucs' && goal && item.n === goal) { S.result.push(item.n); win(item); return good(`Sacaste ${item.n} con el menor g (${item.g}): es el objetivo y el camino más barato.`); }
+    S.expectDecision = S.visited.includes(item.n) ? 'discard' : 'expand'; S.phase = 'decide';
+    return good(`Sacaste ${item.n}${algo === 'ucs' ? ` (g = ${item.g})` : ''}. ¿Ya estaba ${word}?`);
+  }
+  function decide(kind) {
+    if (S.done || S.phase !== 'decide') return { ok: false };
+    if (kind !== S.expectDecision) {
+      return err(S.expectDecision === 'discard' ? `${S.cur} ya estaba ${word}: hay que descartarlo, no volver a expandirlo.`
+        : `${S.cur} todavía no estaba ${word}: hay que ${algo === 'ucs' ? 'expandirlo' : 'visitarlo'}.`);
+    }
+    if (kind === 'discard') { const n = S.cur; S.phase = 'pop'; S.cur = null; S.curItem = null; good(`Descartaste ${n}: ya estaba ${word}.`); checkEmpty(); return { ok: true }; }
+    S.visited.push(S.cur); S.result.push(S.cur);
+    if (algo === 'dfs' && goal && S.cur === goal) { win(S.curItem); return good(`Visitaste ${S.cur}: ¡es el objetivo!`); }
+    S.expectPush = algo === 'dfs' ? [...adj[S.cur]].reverse().filter(e => !S.visited.includes(e.to)) : adj[S.cur].filter(e => !S.visited.includes(e.to));
+    S.phase = 'push';
+    return good(algo === 'dfs' ? `Visitaste ${S.cur}. Ahora apila sus vecinos sin visitar, al revés, para que el primero alfabético quede arriba.` : `Expandiste ${S.cur}. Mete sus vecinos aún no expandidos, con su g acumulado.`);
+  }
+  function push(n) {
+    if (S.done || S.phase !== 'push') return { ok: false };
+    const e0 = adj[S.cur].find(e => e.to === n); if (!e0 || S.pushed.includes(n)) return { ok: false };
+    const exp = S.expectPush, k = exp.findIndex(e => e.to === n);
+    if (k < 0) {
+      return err({ bfs: `${n} ya está marcado como visitado: ya estuvo en la cola. No se mete otra vez.`,
+        dfs: `${n} ya fue visitado; la pila solo recibe nodos sin visitar.`,
+        ucs: `${n} ya fue expandido con un costo menor o igual: no se vuelve a meter.` }[algo]);
+    }
+    if (algo !== 'ucs' && k !== 0) {
+      return err(algo === 'bfs' ? `Los vecinos entran en orden alfabético. Ahora toca ${exp[0].to}.`
+        : `En DFS se apilan al revés (de la Z a la A) para que el primero alfabético quede arriba. Ahora toca ${exp[0].to}.`);
+    }
+    const e = exp.splice(k, 1)[0]; S.pushed.push(n);
+    const item = { n, g: S.curItem.g + e.w, path: [...S.curItem.path, n] };
+    S.struct.push(item); if (algo === 'bfs') S.visited.push(n);
+    if (exp.length === 0) { S.phase = 'pop'; good(`Metiste ${n}${algo === 'ucs' ? ` con g = ${item.g}` : ''}. Ya no quedan vecinos nuevos: vuelve a sacar.`); checkEmpty(); return { ok: true }; }
+    return good(`Metiste ${n}${algo === 'ucs' ? ` con g = ${S.curItem.g} + ${e.w} = ${item.g}` : ''}.`);
+  }
+  function finish() {
+    if (S.done || S.phase !== 'push') return { ok: false };
+    if (S.expectPush.length) return err('Todavía quedan vecinos nuevos por meter.');
+    S.phase = 'pop'; good('No hay más vecinos nuevos: vuelve a sacar.'); checkEmpty(); return { ok: true };
+  }
+  function target() {
+    if (S.phase === 'pop') return { k: 'pop', i: expectedPop() };
+    if (S.phase === 'decide') return { k: 'decide', v: S.expectDecision };
+    return S.expectPush.length ? { k: 'push', n: S.expectPush[0].to } : { k: 'finish' };
+  }
+  const hint = () => { S.hints++; S.showHint = true; };
+  return { S, lv, pop, decide, push, finish, target, hint, expectedPop };
+}
+function bot(game) {
+  let n = 0;
+  while (!game.S.done && n++ < 800) {
+    const S = game.S;
+    if (S.phase === 'pop') game.pop(game.expectedPop());
+    else if (S.phase === 'decide') game.decide(S.expectDecision);
+    else if (S.expectPush.length) game.push(S.expectPush[0].to);
+    else game.finish();
+  }
+  return game.S;
+}
+
+/* =====================================================================
+   Motor: estructuras (predecir qué sale)
+   ===================================================================== */
+const STRUCT_NAME = { queue: 'Cola (FIFO)', stack: 'Pila (LIFO)', pq: 'Cola de prioridad' };
+function StructGame(type, ops) {
+  const S = { type, ops, items: [], i: 0, out: [], mistakes: 0, done: false, fb: null };
+  function run() {
+    while (S.i < ops.length && ops[S.i][0] === '+') {
+      const [n, g] = ops[S.i].slice(1).split(':');
+      S.items.push({ n, g: g === undefined ? 0 : +g }); S.i++;
+    }
+    if (S.i >= ops.length) S.done = true;
+  }
+  function expected() {
+    if (type === 'queue') return 0;
+    if (type === 'stack') return S.items.length - 1;
+    let b = 0; S.items.forEach((it, k) => { if (it.g < S.items[b].g || (it.g === S.items[b].g && collate(it.n, S.items[b].n) < 0)) b = k; }); return b;
+  }
+  function pop(i) {
+    if (S.done) return { ok: false };
+    const e = expected(), it = S.items[e];
+    if (i !== e) {
+      S.mistakes++;
+      S.fb = { t: 'err', m: { queue: `En una COLA sale el primero que entró: ${it.n}.`, stack: `En una PILA sale el último que entró, el tope: ${it.n}.`, pq: `En una cola de prioridad sale el de menor g: ${it.n} (g = ${it.g}).` }[type] };
+      return { ok: false };
+    }
+    S.items.splice(i, 1); S.out.push(it.n); S.i++; S.fb = { t: 'ok', m: `Sale ${it.n}. Correcto.` }; run(); return { ok: true };
+  }
+  run();
+  return { S, pop, expected };
+}
+
+/* =====================================================================
+   Motor: colina con niebla
+   ===================================================================== */
+function LandGame(cfg) {
+  const v = cfg.values, gmax = Math.max(...v);
+  const S = { v, pos: cfg.start, stopped: false, revealed: false, mistakes: 0, moves: 0, restarts: 0, done: false, fb: { t: 'info', m: `Estás en la posición ${cfg.start + 1}. Solo ves tu altura y la de tus vecinos.` }, cfg, used: [cfg.start], asked: false, hints: 0 };
+  const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
+  const good = m => { S.fb = { t: 'ok', m }; return { ok: true }; };
+  const isGlobal = p => v[p] === gmax;
+  const nbrs = p => [p - 1, p + 1].filter(x => x >= 0 && x < v.length);
+  const bestN = () => nbrs(S.pos).reduce((b, x) => (b === null || v[x] > v[b] ? x : b), null);
+  function move(dir) {
+    if (S.stopped || S.done) return { ok: false };
+    const t = S.pos + dir;
+    if (t < 0 || t >= v.length) { S.fb = { t: 'info', m: 'No hay nada hacia ese lado: es el borde del terreno.' }; return { ok: false }; }
+    const b = bestN();
+    if (v[b] <= v[S.pos]) return err('Ningún vecino mejora tu altura actual. No te muevas: hay que parar.');
+    if (v[t] <= v[S.pos]) return err(`Ese vecino mide ${v[t]} y tú estás en ${v[S.pos]}: no mejora.`);
+    if (v[t] < v[b]) return err(`Ese vecino mide ${v[t]}, pero el otro mide ${v[b]}. Hill Climbing elige el mejor vecino.`);
+    S.pos = t; S.moves++; return good(`Subes a ${v[t]}.`);
+  }
+  function stop() {
+    if (S.stopped || S.done) return { ok: false };
+    const b = bestN();
+    if (v[b] > v[S.pos]) return err(`Todavía hay un vecino mejor (${v[b]}). Hill Climbing se detiene solo cuando ninguno mejora.`);
+    S.stopped = true; S.revealed = true;
+    if (cfg.question) return good(`Te detuviste en ${v[S.pos]}: ningún vecino mejora. Se levantó la niebla. ¿Qué tipo de pico es?`);
+    if (isGlobal(S.pos)) { S.done = true; return good(`Te detuviste en ${v[S.pos]}, el máximo global. ¡Lo lograste!`); }
+    return good(`Te detuviste en ${v[S.pos]}, pero hay un pico más alto (${gmax}). Es un máximo local. Prueba un reinicio aleatorio.`);
+  }
+  function answer(isG) {
+    if (!S.stopped || S.done) return { ok: false };
+    if (isG !== isGlobal(S.pos)) return err(isGlobal(S.pos) ? 'Mira la niebla levantada: no hay ningún pico más alto. Es el máximo global.' : `Hay un pico más alto (${gmax}). Este es solo un máximo local.`);
+    S.done = true; S.asked = true;
+    return good(isGlobal(S.pos) ? 'Correcto: es el máximo global.' : 'Correcto: máximo local. Hill Climbing no puede saltar la bajada para llegar al pico más alto.');
+  }
+  function rand() {
+    if (!S.stopped || S.done) return { ok: false };
+    let free = v.map((_, i) => i).filter(i => !S.used.includes(i)); if (!free.length) { S.used = []; free = v.map((_, i) => i); }
+    const p = free[rnd(free.length)]; S.used.push(p); S.pos = p; S.stopped = false; S.revealed = false; S.restarts++;
+    return good(`Reinicio aleatorio: apareces en la posición ${p + 1}. La niebla vuelve.`);
+  }
+  return { S, move, stop, answer, rand, isGlobal, nbrs, bestN };
+}
+
+/* =====================================================================
+   Motor: 8-puzzle (h1 y Manhattan)
+   ===================================================================== */
+const GOAL = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+const tdist = (v, i) => { const g = GOAL.indexOf(v); return Math.abs(Math.floor(i / 3) - Math.floor(g / 3)) + Math.abs(i % 3 - g % 3); };
+const H1 = s => s.reduce((a, v, i) => a + (v !== 0 && v !== GOAL[i] ? 1 : 0), 0);
+const H2 = s => s.reduce((a, v, i) => a + (v ? tdist(v, i) : 0), 0);
+function neighbors(s) {
+  const z = s.indexOf(0), r = Math.floor(z / 3), c = z % 3, out = [];
+  [['arriba', -1, 0], ['abajo', 1, 0], ['izquierda', 0, -1], ['derecha', 0, 1]].forEach(([name, dr, dc]) => {
+    const nr = r + dr, nc = c + dc; if (nr < 0 || nr > 2 || nc < 0 || nc > 2) return;
+    const t = s.slice(), j = nr * 3 + nc; [t[z], t[j]] = [t[j], t[z]]; out.push({ name, s: t, moved: s[j] });
+  });
+  return out;
+}
+function PuzGame(cfg) {
+  const h = cfg.h === 'h1' ? H1 : H2, hn = cfg.h === 'h1' ? 'h₁' : 'h₂';
+  const S = { s: cfg.s.slice(), hk: cfg.h, hn, phase: 'ask', mistakes: 0, hints: 0, moves: 0, done: false, won: false, showHint: false, hist: [h(cfg.s)],
+    fb: { t: 'info', m: `Primero calcula ${hn} del tablero inicial.` } };
+  const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
+  const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; return { ok: true }; };
+  const cur = () => h(S.s);
+  const explain = () => cfg.h === 'h1'
+    ? `Cuenta las fichas (sin el hueco) que no están en su sitio: ${S.s.filter((v, i) => v && v !== GOAL[i]).join(', ') || 'ninguna'}.`
+    : `Suma |filas| + |columnas| que le faltan a cada ficha: ${S.s.map((v, i) => (v && tdist(v, i) ? `${v}→${tdist(v, i)}` : null)).filter(Boolean).join(' + ') || 'todas en su sitio'}.`;
+  function ask(val) {
+    if (S.phase !== 'ask') return { ok: false };
+    if (String(val).trim() === '' || Number.isNaN(+val)) { S.fb = { t: 'info', m: 'Escribe un número.' }; return { ok: false }; }
+    if (+val !== cur()) return err(`${val} no es correcto. ${explain()}`);
+    S.phase = 'choose'; return good(`Correcto: ${hn} = ${cur()}. Ahora elige el vecino con menor h (haz clic en su tablero).`);
+  }
+  function choose(i) {
+    if (S.phase !== 'choose' || S.done) return { ok: false };
+    const nbs = neighbors(S.s), hs = nbs.map(n => h(n.s)), min = Math.min(...hs), c = cur();
+    const list = nbs.map((n, k) => `${n.name} ${hs[k]}`).join(' · ');
+    if (min >= c) return err(`Ningún vecino mejora (${list}; tú estás en ${c}). Hay que detenerse.`);
+    if (hs[i] !== min) return err(`Hay un vecino mejor. Valores: ${list}.`);
+    S.s = nbs[i].s; S.hist.push(min); S.moves++;
+    if (min === 0) { S.done = true; S.won = true; return good(`¡Resuelto en ${S.moves} movimientos! Valores del último paso: ${list}.`); }
+    return good(`Bien. Valores: ${list}. Bajaste de ${c} a ${min}.`);
+  }
+  function stop() {
+    if (S.phase !== 'choose' || S.done) return { ok: false };
+    const nbs = neighbors(S.s), min = Math.min(...nbs.map(n => h(n.s))), c = cur();
+    if (min < c) return err(`Todavía hay un vecino con menor h (${min}). Sigue moviéndote.`);
+    S.done = true; S.won = false;
+    return good(`Correcto: ningún vecino baja de ${c}. Es un óptimo local (meseta), no la solución.` + (cfg.tip ? ' ' + cfg.tip : ''));
+  }
+  const hint = () => { S.hints++; S.showHint = true; };
+  return { S, ask, choose, stop, hint, h, cur };
+}
+
+/* =====================================================================
+   Niveles y mundos
+   ===================================================================== */
+const WORLDS = [
+  { id: 'estr', name: 'Taller de estructuras', code: 'ES', c: '--w1', blurb: 'Cola, pila y cola de prioridad: qué entra y qué sale.',
+    intro: [
+      { t: 'Tres formas de hacer fila', p: 'Los algoritmos de búsqueda guardan los nodos pendientes en una estructura. Lo único que cambia entre BFS, DFS y UCS es cuál nodo sale primero.', vis: 'all' },
+      { t: 'Cola, pila y prioridad', p: 'Cola (FIFO): sale el primero que entró. Pila (LIFO): sale el último que entró. Cola de prioridad: sale el de menor g, sin importar cuándo llegó.', vis: 'all' },
+      { t: 'Tu trabajo', p: 'Verás una secuencia de "Meter" y "Sacar". Cuando toque sacar, haz clic en el elemento que saldría. No hay trampa: solo hay que conocer la regla de cada estructura.', vis: null }
+    ] },
+  { id: 'bfs', name: 'BFS: anchura', code: 'BF', c: '--w2', blurb: 'Explora por niveles usando una cola.',
+    intro: [
+      { t: 'BFS explora por niveles', p: 'Primero visita todos los vecinos del inicio, luego los vecinos de esos, y así sucesivamente. Es como una mancha de aceite que se expande.', vis: 'queue' },
+      { t: 'Usa una cola (FIFO)', p: 'Los nodos entran por la derecha y salen por la izquierda. El que lleva más tiempo esperando sale primero.', vis: 'queue' },
+      { t: 'Tú eres el algoritmo', p: '1) SACA un nodo (clic en él). 2) METE sus vecinos nuevos, en orden alfabético. BFS marca como visitado al meter, así que nunca se mete el mismo nodo dos veces.', vis: null }
+    ], takeaway: 'BFS encuentra el camino con menos aristas, pero no necesariamente el más barato. Marca visitados al meter, por eso la cola nunca tiene repetidos.' },
+  { id: 'dfs', name: 'DFS: profundidad', code: 'DF', c: '--w3', blurb: 'Se mete a fondo por una rama y retrocede, con una pila.',
+    intro: [
+      { t: 'DFS se mete a fondo', p: 'Avanza por una rama hasta que no puede seguir, y entonces retrocede (backtracking) para probar otra.', vis: 'stack' },
+      { t: 'Usa una pila (LIFO)', p: 'El último nodo que entra es el primero en salir: el tope. Por eso siempre sigues explorando lo más reciente.', vis: 'stack' },
+      { t: 'Reglas de este juego', p: 'DFS marca visitado al SACAR. Un nodo puede estar repetido en la pila: si lo sacas y ya estaba visitado, se descarta. Para visitar primero al vecino alfabéticamente menor, los vecinos se apilan al revés.', vis: null }
+    ], takeaway: 'DFS no garantiza el camino más corto ni el más barato. Gasta poca memoria, pero puede perderse por una rama larga.' },
+  { id: 'ucs', name: 'UCS: costo uniforme', code: 'UC', c: '--w4', blurb: 'Saca siempre el nodo más barato, con cola de prioridad.',
+    intro: [
+      { t: 'UCS saca al más barato', p: 'Cada nodo lleva su costo acumulado g(n) desde el inicio. UCS siempre saca el de menor g.', vis: 'pq' },
+      { t: 'Cola de prioridad', p: 'Aquí los nodos no están ordenados: tú debes encontrar el de menor g. Si hay empate, gana el alfabéticamente menor.', vis: 'pq' },
+      { t: 'Reglas de este juego', p: 'El objetivo se comprueba al SACAR, no al meter: así se garantiza el camino más barato. Si sacas un nodo ya expandido, se descarta. Al meter un vecino, su g es g del padre + costo de la arista.', vis: null }
+    ], takeaway: 'UCS siempre encuentra el camino de menor costo. BFS cuenta aristas; UCS suma costos, por eso pueden elegir caminos distintos.' },
+  { id: 'hc', name: 'Hill Climbing', code: 'HC', c: '--w5', blurb: 'Subir una colina con niebla, y el 8-puzzle con Manhattan.',
+    intro: [
+      { t: 'Subir con niebla', p: 'Hill Climbing mira solo a sus vecinos directos, se mueve al mejor y olvida el camino. No guarda ninguna estructura: solo el estado actual.', vis: 'hc' },
+      { t: 'Cuándo se detiene', p: 'Cuando ningún vecino es mejor. Puede ser el máximo global (lo mejor de todo) o un máximo local (un pico más bajo donde se atasca).', vis: 'hc' },
+      { t: 'Heurísticas', p: 'En el 8-puzzle, h₁ cuenta las fichas mal colocadas y h₂ (Manhattan) suma las filas y columnas que le faltan a cada ficha. Se busca h = 0.', vis: null }
+    ] },
+  { id: 'quiz', name: 'Examen relámpago', code: '?!', c: '--w6', blurb: 'Preguntas de teoría y detectar qué algoritmo hizo un recorrido.', intro: null }
+];
+const LEVELS = [
+  { id: 'e0', w: 'estr', kind: 'sandbox', name: 'Taller libre', tutorial: true },
+  { id: 'e1', w: 'estr', kind: 'struct', name: 'Predice: cola', type: 'queue', ops: ['+A', '+B', '+C', '-', '+D', '-', '-', '-'] },
+  { id: 'e2', w: 'estr', kind: 'struct', name: 'Predice: pila', type: 'stack', ops: ['+A', '+B', '+C', '-', '+D', '-', '-', '-'] },
+  { id: 'e3', w: 'estr', kind: 'struct', name: 'Predice: prioridad', type: 'pq', ops: ['+A:5', '+B:2', '+C:7', '-', '+D:1', '+E:2', '-', '-', '-', '-'] },
+  { id: 'e4', w: 'estr', kind: 'struct', name: 'Predice: pila larga', type: 'stack', ops: ['+A', '+B', '-', '+C', '+D', '+E', '-', '-', '+F', '-', '-', '-'] },
+  { id: 'b0', w: 'bfs', kind: 'search', name: 'Tutorial', tutorial: true, guided: true, algo: 'bfs', graph: 'tree', start: 'A', goal: '' },
+  { id: 'b1', w: 'bfs', kind: 'search', name: 'Nivel 1', algo: 'bfs', graph: 'g41R', start: 'B', goal: 'E' },
+  { id: 'b2', w: 'bfs', kind: 'search', name: 'Nivel 2', algo: 'bfs', graph: 'g41L', start: '0', goal: '6' },
+  { id: 'b3', w: 'bfs', kind: 'search', name: 'Nivel 3', algo: 'bfs', graph: 'd44', start: 'A', goal: 'H' },
+  { id: 'd0', w: 'dfs', kind: 'search', name: 'Tutorial', tutorial: true, guided: true, algo: 'dfs', graph: 'tree', start: 'A', goal: '' },
+  { id: 'd1', w: 'dfs', kind: 'search', name: 'Nivel 1', algo: 'dfs', graph: 'g41R', start: 'B', goal: 'E' },
+  { id: 'd2', w: 'dfs', kind: 'search', name: 'Nivel 2', algo: 'dfs', graph: 'g41L', start: '0', goal: '6' },
+  { id: 'd3', w: 'dfs', kind: 'search', name: 'Nivel 3', algo: 'dfs', graph: 'd44', start: 'A', goal: 'H' },
+  { id: 'u0', w: 'ucs', kind: 'search', name: 'Tutorial', tutorial: true, guided: true, algo: 'ucs', graph: 'd42', start: 'S', goal: 'G', cost: true },
+  { id: 'u1', w: 'ucs', kind: 'search', name: 'Nivel 1', algo: 'ucs', graph: 'u13', start: 'S', goal: 'G', cost: true },
+  { id: 'u2', w: 'ucs', kind: 'search', name: 'Nivel 2', algo: 'ucs', graph: 'u43', start: 'A', goal: 'F', cost: true },
+  { id: 'u3', w: 'ucs', kind: 'search', name: 'Nivel 3', algo: 'ucs', graph: 'd45', start: 'A', goal: 'J', cost: true },
+  { id: 'h0', w: 'hc', kind: 'land', name: 'Tutorial', tutorial: true, guided: true, values: [1, 3, 6, 8, 5, 2], start: 0, question: true },
+  { id: 'h1', w: 'hc', kind: 'land', name: 'Atrapado', values: [2, 4, 6, 5, 3, 5, 8, 10, 7], start: 1, question: true },
+  { id: 'h2', w: 'hc', kind: 'land', name: 'Reinicio aleatorio', values: [3, 5, 4, 2, 6, 9, 7, 3, 5, 8, 6, 2], start: 1, restart: true },
+  { id: 'h3', w: 'hc', kind: 'puz', name: '8-puzzle con h₁', h: 'h1', s: [1,2,3,0,4,6,7,5,8] },
+  { id: 'h4', w: 'hc', kind: 'puz', name: 'Meseta con h₁', h: 'h1', s: [1,2,3,4,5,8,7,6,0], tip: 'Con h₁ todos los vecinos valen igual. Prueba la siguiente pantalla con Manhattan.' },
+  { id: 'h5', w: 'hc', kind: 'puz', name: '8-puzzle con Manhattan', h: 'h2', s: [1,2,3,4,5,8,7,6,0], tip: 'Manhattan distingue mejor los estados y permitió un paso más, pero también puede atascarse. Otra salida es el reinicio aleatorio.' },
+  { id: 'q0', w: 'quiz', kind: 'quiz', name: 'Examen relámpago' }
+];
+const lvById = id => LEVELS.find(l => l.id === id);
+const worldLevels = w => LEVELS.filter(l => l.w === w);
+
+/* =====================================================================
+   Dibujo
+   ===================================================================== */
+function geom(g, e) {
+  const [u, v, , o] = e, opt = o || {};
+  const a = g.nodes[u], b = g.nodes[v], bend = opt.bend || 0;
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  const c = [(a[0] + b[0]) / 2 + (dy / len) * bend, (a[1] + b[1]) / 2 - (dx / len) * bend];
+  const q = t => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]];
+  const norm = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+  const R = 21, d1 = norm(c[0] - a[0], c[1] - a[1]), d2 = norm(b[0] - c[0], b[1] - c[1]);
+  return { a2: [a[0] + d1[0] * R, a[1] + d1[1] * R], b2: [b[0] - d2[0] * R, b[1] - d2[1] * R], c, d2, lab: q(opt.lt || 0.5) };
+}
+function graphSVG(lv, S) {
+  const g = GR[lv.graph], pathNodes = S.path || [];
+  const onPath = (u, v) => { for (let k = 0; k < pathNodes.length - 1; k++) { if ((pathNodes[k] === u && pathNodes[k + 1] === v) || (!g.directed && pathNodes[k] === v && pathNodes[k + 1] === u)) return true; } return false; };
+  const resSet = new Set(S.result), front = new Set(S.struct.map(i => i.n));
+  const nbr = new Set(S.phase === 'push' && S.cur ? g.adj[S.cur].map(e => e.to) : []);
+  let s = '';
+  g.edges.forEach(e => {
+    const q = geom(g, e), on = onPath(e[0], e[1]);
+    s += `<path class="e${on ? ' on' : ''}" d="M${q.a2[0]},${q.a2[1]} Q${q.c[0]},${q.c[1]} ${q.b2[0]},${q.b2[1]}"/>`;
+    if (g.directed) { const [dx, dy] = q.d2, tip = q.b2, bx = tip[0] - dx * 11, by = tip[1] - dy * 11; s += `<polygon class="ah${on ? ' on' : ''}" points="${tip[0]},${tip[1]} ${bx - dy * 5},${by + dx * 5} ${bx + dy * 5},${by - dx * 5}"/>`; }
+  });
+  if (lv.cost) g.edges.forEach(e => { const q = geom(g, e); s += `<text class="w" x="${q.lab[0]}" y="${q.lab[1]}">${e[2]}</text>`; });
+  Object.keys(g.nodes).forEach(n => {
+    const [x, y] = g.nodes[n]; let cls = 'nd';
+    if (pathNodes.includes(n)) cls += ' path'; else if (S.cur === n) cls += ' current'; else if (resSet.has(n)) cls += ' done'; else if (front.has(n)) cls += ' frontier';
+    if (nbr.has(n)) cls += ' nbr';
+    s += `<g class="${cls}"><circle cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}">${n}</text></g>`;
+    if (n === lv.start) s += `<text class="tag" x="${x}" y="${y + 36}">inicio</text>`;
+    if (n === lv.goal) s += `<text class="tag" x="${x}" y="${y - 28}" style="fill:var(--bad)">meta</text>`;
+  });
+  return `<svg viewBox="0 0 640 340" role="img" aria-label="Grafo del nivel">${s}</svg>`;
+}
+function tokHTML(it, o) {
+  const small = o.showG ? `<small>g=${it.g}</small>` : '';
+  const cls = 'tok' + (o.pulse ? ' pulse' : '');
+  return o.click ? `<button class="${cls}" data-act="${o.act}" data-i="${o.i}" aria-label="Sacar ${it.n}">${it.n}${small}</button>` : `<span class="${cls} static">${it.n}${small}</span>`;
+}
+function structHTML(type, items, o) {
+  o = o || {};
+  const tk = (it, i) => tokHTML(it, { showG: type === 'pq' || o.showG, click: o.click, act: o.act || 'pop', i, pulse: o.target === i });
+  if (type === 'queue') {
+    return `<div class="qwrap"><div class="qlab">SALE<br>◀</div><div class="qrow">${items.length ? items.map(tk).join('') : '<span class="sempty">vacía</span>'}</div><div class="qlab">ENTRA<br>▶</div></div>`;
+  }
+  if (type === 'stack') {
+    return `<div class="swrap"><div class="qlab" style="width:auto">TOPE (sale primero) ▼</div><div class="scol">${items.length ? items.map((it, i) => tk(it, i)).reverse().join('') : '<span class="sempty">vacía</span>'}</div></div>`;
+  }
+  return `<div class="qlab" style="width:auto;text-align:left;margin-bottom:4px">sale el de MENOR g (sin orden de llegada)</div><div class="bag">${items.length ? items.map(tk).join('') : '<span class="sempty">vacía</span>'}</div>`;
+}
+const sampleItems = [{ n: 'A', g: 4 }, { n: 'B', g: 2 }, { n: 'C', g: 7 }];
+function introVis(v) {
+  if (!v) return '';
+  if (v === 'all') return `<div class="vis"><p class="muted" style="margin-bottom:4px">Se metieron A, B, C en ese orden.</p>${structHTML('queue', sampleItems)}<div style="height:10px"></div>${structHTML('stack', sampleItems)}<div style="height:10px"></div>${structHTML('pq', sampleItems)}</div>`;
+  if (v === 'hc') return `<div class="vis"><svg viewBox="0 0 320 120" role="img" aria-label="Colina"><path d="M10,110 L50,70 L90,85 L130,40 L170,75 L210,25 L250,60 L310,105" fill="none" stroke="var(--ink)" stroke-width="3"/><circle cx="90" cy="85" r="7" fill="var(--n-current)"/><text class="tag" x="210" y="16">máx. global</text><text class="tag" x="130" y="32">máx. local</text></svg></div>`;
+  return `<div class="vis">${structHTML(v, sampleItems)}</div>`;
+}
+
+/* =====================================================================
+   Estado de la interfaz
+   ===================================================================== */
+const app = $('app');
+const ui = { screen: 'home', lv: null, game: null, intro: 0, sb: null, quiz: null };
+function go(screen) { ui.screen = screen; render(); try { window.scrollTo(0, 0); } catch (e) { /* sin scroll */ } }
+function startLevel(id, skipIntro) {
+  const lv = lvById(id); ui.lv = lv;
+  const w = WORLDS.find(x => x.id === lv.w);
+  if (lv.tutorial && !skipIntro && w.intro) { ui.intro = 0; return go('intro'); }
+  if (lv.kind === 'search') ui.game = SearchGame(lv);
+  else if (lv.kind === 'struct') ui.game = StructGame(lv.type, lv.ops);
+  else if (lv.kind === 'land') ui.game = LandGame(lv);
+  else if (lv.kind === 'puz') ui.game = PuzGame(lv);
+  else if (lv.kind === 'sandbox') ui.sb = { type: 'queue', items: [], n: 0, out: [], fb: { t: 'info', m: 'Mete elementos y luego haz clic en el que crees que saldría.' } };
+  else if (lv.kind === 'quiz') ui.quiz = makeQuiz();
+  go(lv.kind === 'search' ? 'play' : lv.kind);
+}
+function finishLevel(stars) {
+  if (!ui.lv) return;
+  saveLevel(ui.lv.id, stars);
+}
+function nextLevelId() {
+  const i = LEVELS.indexOf(ui.lv); return LEVELS[i + 1] ? LEVELS[i + 1].id : null;
+}
+
+/* =====================================================================
+   Pantallas
+   ===================================================================== */
+function topbar(kicker, title, extra) {
+  return `<div class="topbar"><div class="title"><span class="kicker">${kicker}</span><h1>${title}</h1></div><div class="stats">${extra || ''}<button class="btn sm" data-act="home">Mapa</button></div></div>`;
+}
+function renderHome() {
+  const doneCount = LEVELS.filter(l => prog[l.id] && prog[l.id].done).length;
+  const worlds = WORLDS.map(w => `<div class="panel world" style="--wc:var(${w.c})"><div class="head"><span class="badge">${w.code}</span><div><h3>${w.name}</h3><p>${w.blurb}</p></div></div>
+    <div class="lvls">${worldLevels(w.id).map(l => { const p = prog[l.id]; return `<button class="lvl${p && p.done ? ' done' : ''}" data-act="level" data-id="${l.id}">${l.name}${p && p.done ? (l.guided || l.tutorial || !p.stars ? ' ✓' : ` <span class="stars">${starStr(p.stars)}</span>`) : ''}</button>`; }).join('')}</div></div>`).join('');
+  return `<div class="topbar"><div class="title"><span class="kicker">Fundamentos de IA · Unidad 2</span><h1>Maestro de Búsqueda</h1></div><div class="stats"><span class="pill">${doneCount} de ${LEVELS.length} niveles</span></div></div>
+  <div class="panel"><h2>Cómo se juega</h2><div class="howto">
+    <div><b>Tú eres el algoritmo</b>No ves la solución: debes sacar y meter nodos en la estructura de datos, igual que lo haría BFS, DFS o UCS.</div>
+    <div><b>Cada error te explica</b>Si te equivocas, el juego te dice la regla de la estructura. Los errores cuentan para las estrellas.</div>
+    <div><b>Pista si te atoras</b>Una pista marca el siguiente paso correcto, pero te cuesta estrellas. Los tutoriales siempre guían.</div>
+  </div><p class="muted" style="margin-top:10px;margin-bottom:0">Orden recomendado: Taller de estructuras, BFS, DFS, UCS, Hill Climbing y el examen. Tu progreso se guarda en este navegador.</p></div>
+  <div class="worlds">${worlds}</div>`;
+}
+function renderIntro() {
+  const w = WORLDS.find(x => x.id === ui.lv.w), cards = w.intro, c = cards[ui.intro], last = ui.intro === cards.length - 1;
+  return `${topbar(w.name, c.t)}<div class="panel card">${introVis(c.vis)}<p>${c.p}</p>
+    <div class="dots">${cards.map((_, i) => `<i class="${i === ui.intro ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="btns">${ui.intro > 0 ? '<button class="btn" data-act="intro-prev">Anterior</button>' : ''}<button class="btn primary" data-act="intro-next">${last ? 'Empezar' : 'Siguiente'}</button></div></div>`;
+}
+const TYPE_BY_ALGO = { bfs: 'queue', dfs: 'stack', ucs: 'pq' };
+const GOLD = { bfs: 'Es una COLA: sale el de la izquierda.', dfs: 'Es una PILA: sale el tope.', ucs: 'Es una cola de PRIORIDAD: sale el de menor g.' };
+function coachText(game) {
+  const S = game.S, a = S.algo;
+  if (S.phase === 'pop') return { bfs: 'Haz clic en el nodo de la IZQUIERDA de la cola: es el que lleva más tiempo esperando (FIFO).', dfs: 'Haz clic en el TOPE de la pila: el último que entró (LIFO).', ucs: 'Busca el nodo con el menor g y haz clic en él. Con empate, gana el alfabéticamente menor.' }[a];
+  if (S.phase === 'decide') return S.expectDecision === 'discard' ? `${S.cur} ya estaba ${a === 'ucs' ? 'expandido' : 'visitado'} (mira Resultado). Pulsa Descartarlo.` : `${S.cur} aún no estaba ${a === 'ucs' ? 'expandido' : 'visitado'}. Pulsa ${a === 'ucs' ? 'Expandirlo' : 'Visitarlo'}.`;
+  if (!S.expectPush.length) return 'No quedan vecinos nuevos que meter. Pulsa Terminar de meter.';
+  return { bfs: 'Haz clic en los vecinos que aún no estén visitados, en orden alfabético. Los marcados con borde punteado en el grafo son los vecinos de ' + S.cur + '.',
+    dfs: 'Apila los vecinos sin visitar al revés (de la Z a la A), así el primero alfabético queda arriba y sale primero.',
+    ucs: 'Mete cada vecino aún no expandido. Su g es el g de ' + S.cur + ' más el costo de la arista.' }[a];
+}
+function renderPlay() {
+  const game = ui.game, S = game.S, lv = ui.lv, a = S.algo, T = game.target(), show = (lv.guided || S.showHint) && !S.done;
+  const w = WORLDS.find(x => x.id === lv.w);
+  const stats = lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>`;
+  const struct = structHTML(TYPE_BY_ALGO[a], S.struct, { click: true, target: show && T.k === 'pop' ? T.i : -1, showG: a === 'ucs' });
+  let action = '';
+  if (S.done) action = resultCard(game);
+  else if (S.phase === 'pop') action = `<div class="panel"><h2>Tu turno · sacar</h2><p>Saca un nodo de la estructura: haz clic en él.</p></div>`;
+  else if (S.phase === 'decide') action = `<div class="panel"><h2>Tu turno · decidir</h2><p>Sacaste <b class="mono">${S.cur}</b>. ¿Qué haces con él?</p><div class="btns">
+    <button class="btn primary${show && T.v === 'expand' ? ' pulse' : ''}" data-act="decide" data-v="expand">${a === 'ucs' ? 'Expandirlo' : 'Visitarlo'}</button>
+    <button class="btn${show && T.v === 'discard' ? ' pulse' : ''}" data-act="decide" data-v="discard">Descartarlo (ya estaba ${a === 'ucs' ? 'expandido' : 'visitado'})</button></div></div>`;
+  else {
+    const g = GR[lv.graph];
+    action = `<div class="panel"><h2>Tu turno · meter vecinos de ${S.cur}</h2><p>Haz clic en cada vecino que corresponda meter.</p><div class="tray">${g.adj[S.cur].map(e => {
+      const used = S.pushed.includes(e.to);
+      return `<button class="tok sm${used ? ' used' : ''}${show && T.k === 'push' && T.n === e.to ? ' pulse' : ''}" data-act="push" data-n="${e.to}"${used ? ' disabled' : ''}>${e.to}${a === 'ucs' ? `<small>+${e.w}</small>` : ''}</button>`;
+    }).join('')}</div><button class="btn primary${show && T.k === 'finish' ? ' pulse' : ''}" data-act="finish">Terminar de meter</button></div>`;
+  }
+  const coach = lv.guided && !S.done ? `<div class="coach"><b class="t">Tutor</b>${coachText(game)}</div>` : '';
+  const fb = S.fb ? `<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>` : '';
+  const hintBtn = !lv.guided && !S.done ? `<button class="btn sm" data-act="hint">Pista</button>` : '';
+  return `${topbar(w.name + ' · ' + lv.name, lv.algo.toUpperCase() + (lv.goal ? `: de ${lv.start} a ${lv.goal}` : `: recorrido desde ${lv.start}`), stats)}
+  <div class="game"><div class="panel">${graphSVG(lv, S)}<div class="legend"><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div></div>
+  <div class="stack"><div class="panel"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}</div>
+    ${coach}${fb}${action}
+    <div class="panel"><h2>${a === 'ucs' ? 'Expandidos' : 'Visitados'} (orden)</h2><div class="chips">${S.result.length ? S.result.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">ninguno todavía</span>'}</div></div>
+    <div class="btns">${hintBtn}<button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+}
+function resultCard(game) {
+  const S = game.S, lv = ui.lv, w = WORLDS.find(x => x.id === lv.w);
+  const pts = S.mistakes + S.hints * 0.5, stars = starsFor(pts);
+  finishLevel(lv.guided ? 0 : stars);
+  const nxt = nextLevelId();
+  const sum = S.path ? `Camino encontrado: <b class="mono">${S.path.join(' → ')}</b> (${S.path.length - 1} aristas${lv.cost ? `, costo ${S.cost}` : ''}).` : `Orden de visita: <b class="mono">${S.result.join(', ')}</b>.`;
+  return `<div class="panel result"><h2>Nivel completado</h2>${lv.guided ? '<h3>Tutorial superado ✓</h3>' : `<h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.hints} pistas</h3>`}
+    <p>${sum}</p><p class="muted">${w.takeaway}</p>
+    <div class="btns"><button class="btn" data-act="retry">Repetir</button>${nxt ? '<button class="btn primary" data-act="next">Siguiente nivel</button>' : ''}</div></div>`;
+}
+/* ---- estructuras ---- */
+function renderStruct() {
+  const game = ui.game, S = game.S, lv = ui.lv;
+  const prog_ = S.ops.map((o, i) => `<span class="${i === S.i && !S.done ? 'cur' : i < S.i ? 'past' : ''}">${i + 1}. ${o[0] === '+' ? 'Meter ' + o.slice(1).replace(':', ' (g=') + (o.includes(':') ? ')' : '') : 'SACAR'}</span>`).join('');
+  let done = '';
+  if (S.done) { const stars = starsFor(S.mistakes); finishLevel(stars); const nxt = nextLevelId();
+    done = `<div class="panel result"><h2>Nivel completado</h2><h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores</h3><p>Salieron, en orden: <b class="mono">${S.out.join(', ')}</b>.</p>
+    <div class="btns"><button class="btn" data-act="retry">Repetir</button>${nxt ? '<button class="btn primary" data-act="next">Siguiente nivel</button>' : ''}</div></div>`; }
+  return `${topbar('Taller de estructuras · ' + lv.name, STRUCT_NAME[S.type], `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span>`)}
+  <div class="game"><div class="panel"><h2>Programa</h2><div class="prog">${prog_}</div></div>
+  <div class="stack"><div class="panel"><h2>${STRUCT_NAME[S.type]}</h2>${structHTML(S.type, S.items, { click: !S.done, target: -1 })}
+    ${S.done ? '' : '<p class="muted" style="margin-top:10px;margin-bottom:0">Toca SACAR: haz clic en el elemento que saldría.</p>'}</div>
+    ${S.fb ? `<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>` : ''}
+    <div class="panel"><h2>Salidas</h2><div class="chips">${S.out.length ? S.out.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">nada ha salido aún</span>'}</div></div>
+    ${done}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+}
+function renderSandbox() {
+  const sb = ui.sb;
+  return `${topbar('Taller de estructuras · Taller libre', 'Prueba las tres estructuras')}
+  <div class="panel"><div class="btns" role="group" aria-label="Tipo de estructura">${['queue', 'stack', 'pq'].map(t => `<button class="btn${sb.type === t ? ' primary' : ''}" data-act="sb-type" data-t="${t}">${STRUCT_NAME[t]}</button>`).join('')}</div></div>
+  <div class="game"><div class="panel"><h2>${STRUCT_NAME[sb.type]}</h2>${structHTML(sb.type, sb.items, { click: true })}
+    <div class="btns" style="margin-top:12px"><button class="btn primary" data-act="sb-push">Meter ${String.fromCharCode(65 + sb.n % 26)}${sb.type === 'pq' ? ' con g al azar' : ''}</button><button class="btn" data-act="sb-clear">Vaciar</button></div></div>
+  <div class="stack"><div class="fb ${sb.fb.t}" role="status">${sb.fb.m}</div>
+    <div class="panel"><h2>Salidas</h2><div class="chips">${sb.out.length ? sb.out.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">nada ha salido aún</span>'}</div></div>
+    <div class="btns"><button class="btn primary" data-act="sb-done">Terminar taller</button></div></div></div>`;
+}
+/* ---- colina ---- */
+function renderLand() {
+  const game = ui.game, S = game.S, lv = ui.lv, v = S.v, n = v.length, gmax = Math.max(...v);
+  const W = 640, bw = W / n, base = 235, sc = 190 / gmax;
+  let svg = '';
+  v.forEach((val, i) => {
+    const vis = S.revealed || Math.abs(i - S.pos) <= 1, x = i * bw + 5, w = bw - 10;
+    const localPeak = (i === 0 || v[i - 1] < val) && (i === n - 1 || v[i + 1] < val);
+    let cls = 'bar' + (vis ? '' : ' fog');
+    if (i === S.pos) cls += ' here'; else if (S.revealed && val === gmax) cls += ' glob'; else if (S.revealed && localPeak) cls += ' loc';
+    const h = vis ? val * sc : 36;
+    svg += `<rect class="${cls}" x="${x}" y="${base - h}" width="${w}" height="${h}" rx="4"/>`;
+    svg += vis ? `<text class="vl" x="${x + w / 2}" y="${base - h - 8}">${val}</text>` : `<text class="vl" x="${x + w / 2}" y="${base - 12}" style="fill:var(--muted)">?</text>`;
+    if (i === S.pos) svg += `<text class="tag" x="${x + w / 2}" y="${base + 20}">tú</text>`;
+    if (S.revealed && val === gmax) svg += `<text class="tag" x="${x + w / 2}" y="${base - h - 24}" style="fill:var(--good)">global</text>`;
+    else if (S.revealed && localPeak) svg += `<text class="tag" x="${x + w / 2}" y="${base - h - 24}" style="fill:var(--bad)">local</text>`;
+  });
+  const T = lv.guided && !S.done;
+  const b = game.bestN(), canImprove = v[b] > v[S.pos];
+  const dirBest = b - S.pos;
+  const ctl = S.done ? (() => { const stars = lv.restart ? starsFor(Math.max(0, S.restarts - 2) + (S.restarts > 4 ? 1 : 0)) : starsFor(S.mistakes); finishLevel(lv.guided ? 0 : stars); const nxt = nextLevelId();
+      return `<div class="panel result"><h2>Nivel completado</h2>${lv.guided ? '<h3>Tutorial superado ✓</h3>' : `<h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores${lv.restart ? ` · ${S.restarts} reinicios` : ''}</h3>`}
+      <p class="muted">Hill Climbing solo mira a sus vecinos y no guarda el camino: puede quedarse en un máximo local. El reinicio aleatorio ayuda a escapar.</p>
+      <div class="btns"><button class="btn" data-act="retry">Repetir</button>${nxt ? '<button class="btn primary" data-act="next">Siguiente nivel</button>' : ''}</div></div>`; })()
+    : S.stopped && lv.question ? `<div class="panel"><h2>Pregunta</h2><p>Se levantó la niebla. El pico donde te detuviste es:</p><div class="btns"><button class="btn" data-act="hl-ans" data-v="1">Máximo global</button><button class="btn" data-act="hl-ans" data-v="0">Máximo local</button></div></div>`
+    : S.stopped ? `<div class="panel"><h2>Atrapado</h2><p>Estás en un máximo local. Hill Climbing no puede salir solo.</p><button class="btn primary" data-act="hl-rand">Reinicio aleatorio</button></div>`
+    : `<div class="panel"><h2>Tu turno</h2><p>Elige: moverte al mejor vecino o parar si ninguno mejora.</p><div class="btns">
+        <button class="btn${T && canImprove && dirBest < 0 ? ' pulse' : ''}" data-act="hl-move" data-d="-1">◀ Izquierda</button>
+        <button class="btn${T && !canImprove ? ' pulse' : ''}" data-act="hl-stop">■ Parar</button>
+        <button class="btn${T && canImprove && dirBest > 0 ? ' pulse' : ''}" data-act="hl-move" data-d="1">Derecha ▶</button></div></div>`;
+  const coach = T ? `<div class="coach"><b class="t">Tutor</b>${S.stopped ? 'Mira la niebla levantada y responde.' : canImprove ? `Tu altura es ${v[S.pos]}. El mejor vecino mide ${v[b]}: muévete hacia allá.` : 'Ningún vecino es más alto que tú. Pulsa Parar.'}</div>` : '';
+  return `${topbar('Hill Climbing · ' + lv.name, 'Sube la colina con niebla', lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span>`)}
+  <div class="game"><div class="panel"><svg viewBox="0 0 640 270" role="img" aria-label="Terreno con niebla">${svg}</svg>
+    <p class="muted" style="margin:6px 0 0;font-size:0.88rem">Las columnas grises con "?" están cubiertas por la niebla: solo ves tu columna y las vecinas.</p></div>
+  <div class="stack">${coach}<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${ctl}
+    <div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+}
+/* ---- 8-puzzle ---- */
+function boardHTML(s) { return s.map(v => `<div class="tile${v ? '' : ' hole'}">${v || ''}</div>`).join(''); }
+function renderPuz() {
+  const game = ui.game, S = game.S, lv = ui.lv, nbs = neighbors(S.s), hs = nbs.map(n => game.h(n.s));
+  let body = '';
+  if (S.done) { const pts = S.mistakes + S.hints * 0.5, stars = starsFor(pts); finishLevel(stars); const nxt = nextLevelId();
+    body = `<div class="panel result"><h2>Nivel completado</h2><h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.hints} pistas</h3><p>Historial de ${S.hn}: <b class="mono">${S.hist.join(' → ')}</b>.</p>
+      <div class="btns"><button class="btn" data-act="retry">Repetir</button>${nxt ? '<button class="btn primary" data-act="next">Siguiente nivel</button>' : ''}</div></div>`; }
+  else if (S.phase === 'ask') body = `<div class="panel"><h2>Calcula ${S.hn}</h2><p>${S.hk === 'h1' ? 'h₁ = número de fichas (sin el hueco) que no están en su sitio.' : 'h₂ = suma, para cada ficha, de |filas| + |columnas| que le faltan.'}</p>
+      <div class="btns"><input type="number" id="hin" min="0" max="40" aria-label="Valor de ${S.hn}"><button class="btn primary" data-act="ask">Comprobar</button></div></div>`;
+  else body = `<div class="panel"><h2>Vecinos (se mueve el hueco)</h2><p>Haz clic en el vecino con menor ${S.hn}, o detente si ninguno mejora.</p><div class="nbs">${nbs.map((n, i) => `<button class="nb" data-act="choose" data-i="${i}"><div class="board mini">${boardHTML(n.s)}</div><div>hueco ${n.name}<br>(ficha ${n.moved})</div>${S.showHint ? `<div class="hnum">${S.hn} = ${hs[i]}</div>` : ''}</button>`).join('')}</div>
+      <div class="btns" style="margin-top:10px"><button class="btn" data-act="pstop">Detenerme: ningún vecino mejora</button></div></div>`;
+  return `${topbar('Hill Climbing · ' + lv.name, '8-puzzle', `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>`)}
+  <div class="game"><div class="panel"><h2>Estado actual</h2><div class="board">${boardHTML(S.s)}</div><p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? S.hn + ' = ?' : S.hn + ' = ' + game.cur()}</p>
+    <p class="muted" style="font-size:0.85rem;margin:0">Meta: 1 2 3 / 4 5 6 / 7 8 _ (h = 0). Historial: ${S.hist.slice(0, S.phase === 'ask' ? 0 : undefined).join(' → ') || '—'}</p></div>
+  <div class="stack"><div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${body}
+    <div class="btns">${!S.done && S.phase === 'choose' ? '<button class="btn sm" data-act="hint">Pista (muestra h)</button>' : ''}<button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+}
+/* ---- examen ---- */
+const QBANK = [
+  ['¿Qué estructura de datos usa BFS?', ['Pila', 'Cola (FIFO)', 'Cola de prioridad', 'Ninguna'], 1, 'BFS saca primero al nodo que lleva más tiempo esperando, por eso usa una cola.'],
+  ['¿Qué estructura usa UCS?', ['Pila', 'Cola simple', 'Cola de prioridad', 'Árbol binario'], 2, 'UCS saca siempre el nodo de menor costo acumulado g(n).'],
+  ['¿Qué estructura usa DFS (versión con pila)?', ['Cola', 'Pila (LIFO)', 'Cola de prioridad', 'Matriz'], 1, 'El último que entra es el primero que sale: eso mantiene la exploración en profundidad.'],
+  ['¿Cuál algoritmo garantiza el camino de menor costo (costos positivos)?', ['BFS', 'DFS', 'UCS', 'Hill Climbing'], 2, 'UCS expande por costo acumulado creciente. BFS solo minimiza el número de aristas.'],
+  ['¿Qué es g(n)?', ['Estimación de lo que falta para la meta', 'Costo acumulado desde el inicio hasta n', 'Número de vecinos de n', 'Profundidad máxima del árbol'], 1, 'g(n) es lo que ya costó llegar a n desde el estado inicial.'],
+  ['En UCS, ¿cuándo se comprueba si un nodo es el objetivo?', ['Al meterlo en la cola', 'Al sacarlo de la cola', 'Nunca', 'Al contar vecinos'], 1, 'Al sacarlo: así se asegura que no existe un camino más barato todavía sin explorar.'],
+  ['¿Hill Climbing guarda el camino recorrido?', ['Sí, todo', 'No, solo el estado actual', 'Solo el último paso', 'Solo en el 8-puzzle'], 1, 'Mira a sus vecinos, se mueve al mejor y olvida el camino anterior.'],
+  ['Un pico más bajo que el mejor, donde Hill Climbing se detiene, se llama:', ['Máximo global', 'Máximo local', 'Meseta infinita', 'Frontera'], 1, 'Todos sus vecinos son peores, pero existe un pico más alto en otro lugar.'],
+  ['Una solución cuando Hill Climbing se atasca es:', ['Reinicio aleatorio', 'Usar solo BFS', 'Quitar la función objetivo', 'Aumentar el costo'], 0, 'Volver a empezar desde otro punto da otra oportunidad de llegar al máximo global.'],
+  ['La distancia Manhattan en el 8-puzzle suma:', ['Fichas mal colocadas', '|filas| + |columnas| que le faltan a cada ficha', 'Movimientos ya hechos', 'El costo g'], 1, 'Para cada ficha cuenta cuántas filas y columnas la separan de su sitio y se suma.'],
+  ['¿Por qué BFS no siempre da el camino más barato?', ['Usa una pila', 'Cuenta aristas, no costos', 'Olvida nodos', 'No marca visitados'], 1, 'Un camino con pocas aristas puede ser muy caro; BFS no mira los costos.'],
+  ['¿Cuál NO forma parte de la formalización de un problema de búsqueda?', ['Estado inicial', 'Acciones', 'Distancia Manhattan', 'Costo'], 2, 'Los 6 elementos son: estado inicial, estados, acciones, transición, objetivo y costo.'],
+  ['¿Cuál es la complejidad en tiempo de BFS y DFS con V vértices y E aristas?', ['O(V + E)', 'O(V²·E)', 'O(log V)', 'O(E²)'], 0, 'Cada vértice y cada arista se procesan una vez.'],
+  ['¿Cómo recorres un grafo desconectado completo con BFS o DFS?', ['Una sola ejecución basta', 'Lanzas el algoritmo desde cada nodo no visitado', 'Es imposible', 'Se usa UCS'], 1, 'Una ejecución solo alcanza su componente conexa.']
+];
+function makeQuiz() {
+  const pool = QBANK.map(q => ({ q: q[0], o: q[1], a: q[2], why: q[3] })).sort(() => Math.random() - 0.5).slice(0, 8);
+  const gens = Object.keys(GR).filter(k => GR[k].edges.some(e => e[2] !== 1)).sort(() => Math.random() - 0.5);
+  const made = [];
+  for (const gk of gens) {
+    if (made.length >= 2) break;
+    const g = GR[gk], start = Object.keys(g.nodes)[0];
+    const ord = {}; ['bfs', 'dfs', 'ucs'].forEach(a => { ord[a] = bot(SearchGame({ algo: a, graph: gk, start, goal: '' })).result.join(' '); });
+    if (new Set(Object.values(ord)).size < 3) continue;
+    const a = ['bfs', 'dfs', 'ucs'][rnd(3)];
+    made.push({ q: `En este grafo, empezando en ${start}, un algoritmo visitó los nodos en este orden: ${ord[a].split(' ').join(', ')}. ¿Cuál fue?`, o: ['BFS', 'DFS', 'UCS'], a: ['bfs', 'dfs', 'ucs'].indexOf(a), why: { bfs: 'Visita por niveles (cola).', dfs: 'Baja por una rama antes de retroceder (pila).', ucs: 'Sigue el menor costo acumulado g(n).' }[a], graph: gk });
+  }
+  return { qs: [...pool, ...made].sort(() => Math.random() - 0.5), i: 0, score: 0, picked: null };
+}
+function renderQuiz() {
+  const Q = ui.quiz;
+  if (Q.i >= Q.qs.length) { const stars = Q.score >= Q.qs.length - 1 ? 3 : Q.score >= Q.qs.length * 0.7 ? 2 : 1; finishLevel(stars);
+    return `${topbar('Examen relámpago', 'Resultado')}<div class="panel card"><h3><span class="stars">${starStr(stars)}</span></h3><p>Acertaste <b>${Q.score} de ${Q.qs.length}</b>.</p><div class="btns"><button class="btn primary" data-act="retry">Otra ronda</button><button class="btn" data-act="home">Mapa</button></div></div>`; }
+  const q = Q.qs[Q.i];
+  const gv = q.graph ? `<div class="panel">${graphSVG({ graph: q.graph, start: Object.keys(GR[q.graph].nodes)[0], goal: '', cost: true }, { path: null, result: [], struct: [], phase: 'pop', cur: null })}</div>` : '';
+  return `${topbar('Examen relámpago', `Pregunta ${Q.i + 1} de ${Q.qs.length}`, `<span class="pill">aciertos ${Q.score}</span>`)}
+  <div class="panel card">${gv}<h3>${q.q}</h3><div class="opts">${q.o.map((t, i) => `<button class="opt${Q.picked !== null ? (i === q.a ? ' right' : i === Q.picked ? ' wrong' : '') : ''}" data-act="qpick" data-i="${i}"${Q.picked !== null ? ' disabled' : ''}>${t}</button>`).join('')}</div>
+    ${Q.picked !== null ? `<div class="fb ${Q.picked === q.a ? 'ok' : 'err'}">${Q.picked === q.a ? 'Correcto. ' : 'No era esa. '}${q.why}</div><div class="btns"><button class="btn primary" data-act="qnext">${Q.i + 1 >= Q.qs.length ? 'Ver resultado' : 'Siguiente'}</button></div>` : ''}</div>`;
+}
+function render() {
+  const f = { home: renderHome, intro: renderIntro, play: renderPlay, struct: renderStruct, sandbox: renderSandbox, land: renderLand, puz: renderPuz, quiz: renderQuiz }[ui.screen];
+  app.innerHTML = f();
+}
+
+/* =====================================================================
+   Acciones
+   ===================================================================== */
+function act(a, d) {
+  const g = ui.game;
+  switch (a) {
+    case 'home': ui.screen = 'home'; break;
+    case 'level': startLevel(d.id); return;
+    case 'intro-prev': ui.intro = Math.max(0, ui.intro - 1); break;
+    case 'intro-next': { const w = WORLDS.find(x => x.id === ui.lv.w); if (ui.intro >= w.intro.length - 1) return startLevel(ui.lv.id, true); ui.intro++; break; }
+    case 'retry': startLevel(ui.lv.id, true); return;
+    case 'next': { const n = nextLevelId(); if (n) startLevel(n); else ui.screen = 'home'; break; }
+    case 'pop': if (ui.screen === 'struct' || ui.screen === 'play') g.pop(+d.i); else if (ui.screen === 'sandbox') sbPop(+d.i); break;
+    case 'decide': g.decide(d.v); break;
+    case 'push': g.push(d.n); break;
+    case 'finish': g.finish(); break;
+    case 'hint': g.hint(); break;
+    case 'hl-move': g.move(+d.d); break;
+    case 'hl-stop': g.stop(); break;
+    case 'hl-ans': g.answer(d.v === '1'); break;
+    case 'hl-rand': g.rand(); break;
+    case 'ask': g.ask(($('hin') || {}).value); break;
+    case 'choose': g.choose(+d.i); break;
+    case 'pstop': g.stop(); break;
+    case 'sb-type': ui.sb.type = d.t; ui.sb.items = []; ui.sb.out = []; ui.sb.fb = { t: 'info', m: `Cambiaste a ${STRUCT_NAME[d.t]}. Mete elementos y sácalos.` }; break;
+    case 'sb-push': { const sb = ui.sb; sb.items.push({ n: String.fromCharCode(65 + sb.n % 26), g: 1 + rnd(9) }); sb.n++; sb.fb = { t: 'info', m: 'Metido. Meter siempre agrega al final (derecha / tope).' }; break; }
+    case 'sb-clear': ui.sb.items = []; ui.sb.out = []; ui.sb.n = 0; break;
+    case 'sb-done': saveLevel('e0', 0); ui.screen = 'home'; break;
+    case 'qpick': { const Q = ui.quiz; if (Q.picked === null) { Q.picked = +d.i; if (Q.picked === Q.qs[Q.i].a) Q.score++; } break; }
+    case 'qnext': ui.quiz.i++; ui.quiz.picked = null; break;
+    default: return;
+  }
+  render();
+}
+function sbPop(i) {
+  const sb = ui.sb, it = sb.items[i]; let e = 0;
+  if (sb.type === 'stack') e = sb.items.length - 1;
+  else if (sb.type === 'pq') sb.items.forEach((x, k) => { if (x.g < sb.items[e].g || (x.g === sb.items[e].g && collate(x.n, sb.items[e].n) < 0)) e = k; });
+  if (i !== e) { const t = sb.items[e]; sb.fb = { t: 'err', m: { queue: `En una COLA sale el primero que entró: ${t.n}.`, stack: `En una PILA sale el último que entró: ${t.n}.`, pq: `En una cola de prioridad sale el de menor g: ${t.n} (g = ${t.g}).` }[sb.type] }; return; }
+  sb.items.splice(i, 1); sb.out.push(it.n); sb.fb = { t: 'ok', m: `Sale ${it.n}. Correcto.` };
+}
+app.addEventListener('click', e => {
+  const t = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!t || t.disabled) return;
+  act(t.dataset.act, t.dataset);
+});
+window.__maestro = { act, ui, SearchGame, bot, LEVELS, LandGame, PuzGame, StructGame, makeQuiz, render, startLevel };
+render();
+})();
+</script>
+
+</html>
