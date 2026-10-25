@@ -114,7 +114,7 @@ svg { display: block; width: 100%; height: auto; }
 .tag { font-family: var(--font-ui); font-size: 11px; font-weight: 800; fill: var(--muted); text-anchor: middle; text-transform: uppercase; letter-spacing: 0.05em; }
 /* estructuras */
 .tok { font-family: var(--font-data); font-weight: 700; font-size: 1.05rem; min-width: 46px; min-height: 46px; padding: 4px 10px; border-radius: 10px; background: var(--n-frontier); color: var(--ink);
-  border: 2px solid var(--ink); cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; animation: pop 0.18s ease-out; }
+  border: 2px solid var(--ink); cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
 .tok small { font-size: 0.68rem; font-weight: 500; }
 .tok.sm { min-width: 40px; min-height: 40px; font-size: 0.95rem; background: var(--n-idle); }
 .tok.used { opacity: 0.35; cursor: default; }
@@ -185,6 +185,32 @@ input[type="number"] { font: inherit; font-family: var(--font-data); width: 84px
 .route .leg { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; font-size: 0.8rem; color: var(--muted); }
 .route .leg small { font-size: 0.72rem; color: var(--ink); }
 .formula { font-family: var(--font-data); font-size: 0.86rem; overflow-wrap: anywhere; margin: 4px 0 0; }
+.ghost { position: fixed; z-index: 60; pointer-events: none; display: flex; align-items: center; justify-content: center; font-family: var(--font-data); font-weight: 700; font-size: 1.05rem; border-radius: 10px; background: var(--n-frontier); border: 2px solid var(--ink); color: var(--ink); }
+.ghost.x { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); font-size: 1.5rem; }
+.flash-err { outline: 3px solid var(--bad); outline-offset: 2px; }
+.stepper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.stepper .st { display: inline-flex; gap: 6px; align-items: center; font-size: 0.82rem; font-weight: 700; padding: 3px 10px 3px 4px; border-radius: 999px; background: var(--bg); color: var(--muted); border: 2px solid var(--line); }
+.stepper .st b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--line); color: var(--ink); font-size: 0.75rem; }
+.stepper .st.on { background: var(--soft); color: var(--ink); border-color: var(--primary); }
+.stepper .st.on b { background: var(--primary); color: var(--on-primary); }
+.stepper .arr { color: var(--muted); }
+.instr { font-size: 1rem; margin: 6px 0 8px; }
+.log { margin: 0; padding-left: 20px; font-size: 0.88rem; }
+.log li { margin-bottom: 3px; } .log li:last-child { font-weight: 700; }
+.cap { font-weight: 700; margin-bottom: 6px; min-height: 1.5em; }
+.e.cur { stroke: var(--n-current); stroke-width: 4; } .ah.cur { fill: var(--n-current); }
+.hgrid { display: grid; gap: 5px; width: 100%; max-width: 680px; }
+.cell { aspect-ratio: 1; min-height: 44px; border-radius: 9px; border: 2px solid var(--line); background: var(--n-idle); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; font-family: var(--font-data); font-weight: 700; font-size: 1.05rem; color: var(--ink); padding: 0; line-height: 1.1; }
+.cell.fog { opacity: 0.4; }
+.cell.nb { border: 2px dashed var(--amber); cursor: pointer; background: var(--amber-soft); font: inherit; font-family: var(--font-data); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.cell.nb.known.up { border-style: solid; border-color: var(--good); background: var(--good-soft); }
+.cell.nb.known.down { border-style: solid; border-color: var(--bad); background: var(--bad-soft); }
+.cell.here { border-color: var(--ink); background: var(--n-current); color: var(--on-strong); }
+.cell small { font-size: 0.72rem; font-weight: 700; }
+.cell .ball { position: absolute; top: 2px; left: 3px; font-size: 0.62rem; background: var(--ink); color: var(--surface); border-radius: 999px; padding: 0 6px; font-family: var(--font-ui); }
+.cell .tag2 { position: absolute; bottom: 1px; right: 3px; font-size: 0.58rem; font-family: var(--font-ui); font-weight: 800; }
+.cell .dot { position: absolute; right: 4px; top: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); opacity: 0.55; }
+.cell .arrow { position: absolute; top: 1px; right: 4px; font-size: 0.85rem; opacity: 0.75; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -197,6 +223,47 @@ const $ = id => document.getElementById(id);
 const collate = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
 const rnd = n => Math.floor(Math.random() * n);
 
+/* ---------- animaciones (se desactivan con prefers-reduced-motion) ---------- */
+const ANIM = typeof document.createElement === 'function' && typeof getComputedStyle === 'function' && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+function ghost(html, from, to, o) {
+  o = o || {};
+  if (!ANIM || !from || !to) { if (o.done) o.done(); return; }
+  const el = document.createElement('div'); el.className = 'ghost' + (o.cls ? ' ' + o.cls : ''); el.innerHTML = html;
+  el.style.left = from.left + 'px'; el.style.top = from.top + 'px'; el.style.width = from.width + 'px'; el.style.height = from.height + 'px';
+  document.body.appendChild(el);
+  const dx = (to.left + to.width / 2) - (from.left + from.width / 2), dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+  const sx = to.width / (from.width || 1), sy = to.height / (from.height || 1);
+  let a;
+  try { a = el.animate([{ transform: 'translate(0,0) scale(1,1)', opacity: 1 }, { transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})`, opacity: o.fade ? 0 : 1 }], { duration: o.ms || 560, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' }); }
+  catch (e) { el.remove(); if (o.done) o.done(); return; }
+  a.onfinish = () => { el.remove(); if (o.done) o.done(); };
+}
+function flipMove(el, dx, dy) {
+  let k = 1; const svg = el.ownerSVGElement;
+  if (svg && svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) k = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+  el.animate([{ transform: `translate(${dx / k}px,${dy / k}px)` }, { transform: 'translate(0,0)' }], { duration: 440, easing: 'cubic-bezier(.3,.7,.3,1)' });
+}
+function snapFlip(root) { const m = {}; root.querySelectorAll('[data-flip]').forEach(el => { m[el.dataset.flip] = el.getBoundingClientRect(); }); return m; }
+function applyFlip(root, m) {
+  const fresh = [];
+  root.querySelectorAll('[data-flip]').forEach(el => {
+    const b = m[el.dataset.flip]; if (!b) { fresh.push(el); return; }
+    const n = el.getBoundingClientRect(), dx = b.left - n.left, dy = b.top - n.top;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) flipMove(el, dx, dy);
+  });
+  return fresh;
+}
+function scaleIn(el) { try { el.animate([{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 340, easing: 'ease-out' }); } catch (e) { /* sin animación */ } }
+function shake(el) {
+  if (!el) return;
+  el.classList.add('flash-err'); setTimeout(() => el.classList.remove('flash-err'), 700);
+  try { el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-7px)' }, { transform: 'translateX(7px)' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(0)' }], { duration: 340 }); } catch (e) { /* sin animación */ }
+}
+function burst(el) {
+  if (!el) return;
+  el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
+  try { el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'ease-out' }); } catch (e) { /* sin animación */ }
+}
 /* ---------- progreso guardado (solo conveniencia del navegador) ---------- */
 const store = {
   get() { try { return JSON.parse(localStorage.getItem('maestro-busqueda') || '{}'); } catch (e) { return {}; } },
@@ -275,11 +342,12 @@ function makeGrid(rows, cols, withCost) {
    ===================================================================== */
 function SearchGame(lv) {
   const g = gOf(lv), adj = g.adj, algo = lv.algo, goal = lv.goal || '';
-  const S = { ord: g.grid ? 'el orden ↑ ↓ ← →' : 'orden alfabético', hintLog: [], algo, goal, struct: [{ n: lv.start, g: 0, path: [lv.start] }], visited: algo === 'bfs' ? [lv.start] : [], result: [], cur: null, curItem: null,
+  let uid = 0;
+  const S = { lastExp: null, branch: [lv.start], log: [], failed: false, ord: g.grid ? 'el orden ↑ ↓ ← →' : 'orden alfabético', hintLog: [], algo, goal, struct: [{ id: ++uid, n: lv.start, g: 0, path: [lv.start] }], visited: algo === 'bfs' ? [lv.start] : [], result: [], cur: null, curItem: null,
     phase: 'pop', expectDecision: null, expectPush: [], pushed: [], done: false, won: false, path: null, cost: null, mistakes: 0, hints: 0, fb: null, showHint: false, steps: 0 };
-  const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
+  const err = m => { S.mistakes++; S.fb = { t: 'err', m }; if (lv.lives && S.mistakes > lv.lives) { S.done = true; S.failed = true; S.fb = { t: 'err', m: 'Te quedaste sin vidas: demasiados errores. Inténtalo de nuevo.' }; } return { ok: false }; };
   const info = m => { S.fb = { t: 'info', m }; return { ok: false }; };
-  const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; S.hintLog = []; return { ok: true }; };
+  const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; S.hintLog = []; S.log.push(m); if (S.log.length > 8) S.log.shift(); return { ok: true }; };
   const cmp = (a, b) => a.g - b.g || collate(a.n, b.n) || collate(a.path.join(), b.path.join());
   const word = algo === 'ucs' ? 'expandido' : 'visitado';
   function expectedPop() {
@@ -326,7 +394,15 @@ function SearchGame(lv) {
     if (algo === 'dfs' && goal && S.cur === goal) { win(S.curItem); return good(`Visitaste ${S.cur}: ¡es el objetivo!`); }
     S.expectPush = algo === 'dfs' ? [...adj[S.cur]].reverse().filter(e => !S.visited.includes(e.to)) : adj[S.cur].filter(e => !S.visited.includes(e.to));
     S.phase = 'push';
-    return good(algo === 'dfs' ? `Visitaste ${S.cur}. Ahora apila sus vecinos sin visitar, al revés, para que el primero del orden quede arriba.` : `Expandiste ${S.cur}. Mete sus vecinos aún no expandidos, con su g acumulado.`);
+    if (algo === 'dfs') {
+      const p = S.curItem.path, par = p.length > 1 ? p[p.length - 2] : null, depth = p.length - 1;
+      const back = S.lastExp !== null && par !== null && par !== S.lastExp;
+      const intro = back ? `Retrocediste: desde ${S.lastExp} ya no quedaba nada nuevo, así que continúas desde ${par}. ` : (par ? `Bajas un nivel más. ` : 'Empiezas por el inicio. ');
+      S.lastExp = S.cur; S.branch = p.slice();
+      const rest = S.expectPush.length ? `Ahora apila sus vecinos sin visitar al revés, para que el primero según ${S.ord} quede arriba y sea el siguiente en salir.` : 'No tiene vecinos sin visitar: es un callejón sin salida. Pulsa Terminar de meter y la pila te hará retroceder.';
+      return good(`${intro}Visitaste ${S.cur} (profundidad ${depth}${par ? `, vienes de ${par}` : ''}). ${rest}`);
+    }
+    return good(`Expandiste ${S.cur}. Mete sus vecinos aún no expandidos, con su g acumulado.`);
   }
   function push(n) {
     if (S.done || S.phase !== 'push') return { ok: false };
@@ -339,10 +415,10 @@ function SearchGame(lv) {
     }
     if (algo !== 'ucs' && k !== 0) {
       return err(algo === 'bfs' ? `Los vecinos entran en ${S.ord}. Ahora toca ${exp[0].to}.`
-        : `En DFS se apilan al revés (el último del orden primero) para que el primero de ${S.ord} quede arriba. Ahora toca ${exp[0].to}.`);
+        : `En DFS se apilan al revés (el último del orden primero) para que el primero según ${S.ord} quede arriba. Ahora toca ${exp[0].to}.`);
     }
     const e = exp.splice(k, 1)[0]; S.pushed.push(n);
-    const item = { n, g: S.curItem.g + e.w, path: [...S.curItem.path, n] };
+    const item = { id: ++uid, n, g: S.curItem.g + e.w, path: [...S.curItem.path, n] };
     S.struct.push(item); if (algo === 'bfs') S.visited.push(n);
     if (exp.length === 0) { S.phase = 'pop'; good(`Metiste ${n} (g = ${S.curItem.g} + ${e.w} = ${item.g}). Ya no quedan vecinos nuevos: vuelve a sacar.`); checkEmpty(); return { ok: true }; }
     return good(`Metiste ${n} (g = ${S.curItem.g} + ${e.w} = ${item.g}).`);
@@ -377,11 +453,12 @@ function bot(game) {
    ===================================================================== */
 const STRUCT_NAME = { queue: 'Cola (FIFO)', stack: 'Pila (LIFO)', pq: 'Cola de prioridad' };
 function StructGame(type, ops) {
+  let uid = 0;
   const S = { type, ops, items: [], i: 0, out: [], mistakes: 0, done: false, fb: null };
   function run() {
     while (S.i < ops.length && ops[S.i][0] === '+') {
       const [n, g] = ops[S.i].slice(1).split(':');
-      S.items.push({ n, g: g === undefined ? 0 : +g }); S.i++;
+      S.items.push({ id: ++uid, n, g: g === undefined ? 0 : +g }); S.i++;
     }
     if (S.i >= ops.length) S.done = true;
   }
@@ -407,46 +484,88 @@ function StructGame(type, ops) {
 /* =====================================================================
    Motor: colina con niebla
    ===================================================================== */
+const NB4 = [['↑', -1, 0, 'arriba'], ['↓', 1, 0, 'abajo'], ['←', 0, -1, 'a la izquierda'], ['→', 0, 1, 'a la derecha']];
+function terrainCfg(rows, cols, nPeaks, trap) {
+  const nbs = (r, c) => NB4.map(([, dr, dc]) => [r + dr, c + dc]).filter(([a, b]) => a >= 0 && a < rows && b >= 0 && b < cols);
+  let v = null;
+  for (let t = 0; t < 1500; t++) {
+    const peaks = Array.from({ length: nPeaks }, (_, k) => ({ r: rnd(rows), c: rnd(cols), h: k === 0 ? 92 + rnd(7) : 70 + rnd(20), s: 3 + rnd(3) }));
+    v = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => Math.round(Math.max(...peaks.map(p => p.h - p.s * (Math.abs(r - p.r) + Math.abs(c - p.c)))))));
+    const flat = v.flat(), gm = Math.max(...flat);
+    if (flat.filter(x => x === gm).length !== 1) continue;
+    const cells = []; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push([r, c]);
+    const locals = cells.filter(([r, c]) => nbs(r, c).every(([a, b]) => v[a][b] < v[r][c]));
+    if (nPeaks === 1 ? locals.length !== 1 : locals.length < 2) continue;
+    const climb = (r, c) => { for (;;) { let b = null; nbs(r, c).forEach(([a, bb]) => { if (v[a][bb] > v[r][c] && (!b || v[a][bb] > v[b[0]][b[1]])) b = [a, bb]; }); if (!b) return [r, c]; [r, c] = b; } };
+    const ends = cells.map(([r, c]) => ({ r, c, end: climb(r, c) })), isG = e => v[e[0]][e[1]] === gm;
+    if (nPeaks === 1) {
+      const g = locals[0], corners = [[0, 0], [0, cols - 1], [rows - 1, 0], [rows - 1, cols - 1]];
+      corners.sort((x, y) => (Math.abs(y[0] - g[0]) + Math.abs(y[1] - g[1])) - (Math.abs(x[0] - g[0]) + Math.abs(x[1] - g[1])));
+      return { v, rows, cols, start: corners[0] };
+    }
+    if (trap) {
+      const bad = ends.filter(e => !isG(e.end)), good = ends.filter(e => isG(e.end));
+      if (bad.length < 3 || good.length < 4) continue;
+      const p = bad[rnd(bad.length)]; return { v, rows, cols, start: [p.r, p.c] };
+    }
+    const p = ends[rnd(ends.length)]; return { v, rows, cols, start: [p.r, p.c] };
+  }
+  return { v, rows, cols, start: [0, 0] };
+}
 function LandGame(cfg) {
-  const v = cfg.values, gmax = Math.max(...v);
-  const S = { v, pos: cfg.start, stopped: false, revealed: false, mistakes: 0, moves: 0, restarts: 0, done: false, fb: { t: 'info', m: `Estás en la posición ${cfg.start + 1}. Solo ves tu altura y la de tus vecinos.` }, cfg, used: [cfg.start], asked: false, hints: 0, hintLog: [], showHint: false };
+  const v = cfg.v, rows = cfg.rows, cols = cfg.cols, gmax = Math.max(...v.flat()), vmin = Math.min(...v.flat());
+  const at = p => v[p[0]][p[1]];
+  const S = { v, rows, cols, pos: cfg.start.slice(), start: cfg.start.slice(), known: [], phase: 'look', trail: [cfg.start.slice()], stopped: false, revealed: false, mistakes: 0, moves: 0, evals: 0, restarts: 0, done: false, asked: false, cfg, used: [cfg.start[0] * cols + cfg.start[1]], hints: 0, hintLog: [], showHint: false,
+    fb: { t: 'info', m: 'Estás en el terreno cubierto por la niebla. Solo conoces la altura de tu casilla. Empieza evaluando a tus vecinos.' } };
   const err = m => { S.mistakes++; S.fb = { t: 'err', m }; return { ok: false }; };
+  const info = m => { S.fb = { t: 'info', m }; return { ok: false }; };
   const good = m => { S.fb = { t: 'ok', m }; S.showHint = false; S.hintLog = []; return { ok: true }; };
-  const isGlobal = p => v[p] === gmax;
-  const nbrs = p => [p - 1, p + 1].filter(x => x >= 0 && x < v.length);
-  const bestN = () => nbrs(S.pos).reduce((b, x) => (b === null || v[x] > v[b] ? x : b), null);
-  function move(dir) {
-    if (S.stopped || S.done) return { ok: false };
-    const t = S.pos + dir;
-    if (t < 0 || t >= v.length) { S.fb = { t: 'info', m: 'No hay nada hacia ese lado: es el borde del terreno.' }; return { ok: false }; }
-    const b = bestN();
-    if (v[b] <= v[S.pos]) return err('Ningún vecino mejora tu altura actual. No te muevas: hay que parar.');
-    if (v[t] <= v[S.pos]) return err(`Ese vecino mide ${v[t]} y tú estás en ${v[S.pos]}: no mejora.`);
-    if (v[t] < v[b]) return err(`Ese vecino mide ${v[t]}, pero el otro mide ${v[b]}. Hill Climbing elige el mejor vecino.`);
-    S.pos = t; S.moves++; return good(`Subes a ${v[t]}.`);
+  const nbrs = () => NB4.map(([dir, dr, dc, name]) => ({ r: S.pos[0] + dr, c: S.pos[1] + dc, dir, name })).filter(p => p.r >= 0 && p.r < rows && p.c >= 0 && p.c < cols).map(p => ({ ...p, k: p.r * cols + p.c }));
+  const cur = () => at(S.pos);
+  const bestN = () => nbrs().reduce((b, p) => (b === null || v[p.r][p.c] > v[b.r][b.c] ? p : b), null);
+  const isGlobal = p => at(p) === gmax;
+  const isLocal = (r, c) => NB4.every(([, dr, dc]) => { const a = r + dr, b = c + dc; return a < 0 || a >= rows || b < 0 || b >= cols || v[a][b] < v[r][c]; });
+  function evaluate(r, c) {
+    if (S.done || S.stopped) return { ok: false };
+    const p = nbrs().find(x => x.r === r && x.c === c); if (!p) return { ok: false };
+    if (S.known.includes(p.k)) return info('Ya evaluaste esa casilla. Evalúa las que aún tienen ?.');
+    S.known.push(p.k); S.evals++;
+    const d = v[r][c] - cur(); if (S.known.length === nbrs().length) S.phase = 'choose';
+    return good(`Evaluaste el vecino ${p.name}: mide ${v[r][c]} (${d > 0 ? '+' : ''}${d} respecto a tu casilla, que mide ${cur()}).${S.phase === 'choose' ? ' Ya conoces a todos tus vecinos: ahora elige.' : ''}`);
+  }
+  function move(r, c) {
+    if (S.done || S.stopped) return { ok: false };
+    if (S.phase !== 'choose') return err('Primero evalúa a todos tus vecinos (haz clic en las casillas con ?). Hill Climbing compara a todos antes de decidir.');
+    const b = bestN(), bv = v[b.r][b.c], tv = v[r][c];
+    if (bv <= cur()) return err('Ningún vecino es más alto que tu casilla: no te muevas, hay que parar.');
+    if (tv <= cur()) return err(`Ese vecino mide ${tv} y tú estás en ${cur()}: no mejora.`);
+    if (tv < bv) return err(`Ese vecino mide ${tv}, pero hay otro que mide ${bv}. Hill Climbing elige el mejor vecino.`);
+    const old = cur(); S.pos = [r, c]; S.moves++; S.known = []; S.phase = 'look'; S.trail.push([r, c]);
+    return good(`Te mueves al mejor vecino y subes de ${old} a ${tv}. Tu posición anterior se olvida: la niebla vuelve a cubrir tus vecinos nuevos.`);
   }
   function stop() {
-    if (S.stopped || S.done) return { ok: false };
+    if (S.done || S.stopped) return { ok: false };
+    if (S.phase !== 'choose') return err('Antes de parar tienes que evaluar a todos tus vecinos: quizá alguno sea mejor.');
     const b = bestN();
-    if (v[b] > v[S.pos]) return err(`Todavía hay un vecino mejor (${v[b]}). Hill Climbing se detiene solo cuando ninguno mejora.`);
+    if (v[b.r][b.c] > cur()) return err(`Todavía hay un vecino mejor (${v[b.r][b.c]}). Hill Climbing solo se detiene cuando ninguno mejora.`);
     S.stopped = true; S.revealed = true;
-    if (cfg.question) return good(`Te detuviste en ${v[S.pos]}: ningún vecino mejora. Se levantó la niebla. ¿Qué tipo de pico es?`);
-    if (isGlobal(S.pos)) { S.done = true; return good(`Te detuviste en ${v[S.pos]}, el máximo global. ¡Lo lograste!`); }
-    return good(`Te detuviste en ${v[S.pos]}, pero hay un pico más alto (${gmax}). Es un máximo local. Prueba un reinicio aleatorio.`);
+    if (cfg.question) return good(`Te detuviste en ${cur()}: ningún vecino mejora. Se levantó la niebla. ¿Qué tipo de pico es?`);
+    if (isGlobal(S.pos)) { S.done = true; return good(`Te detuviste en ${cur()}, el máximo global del terreno. ¡Lo lograste!`); }
+    return good(`Te detuviste en ${cur()}, pero hay un pico más alto (${gmax}). Es un máximo local. Prueba un reinicio aleatorio.`);
   }
   function answer(isG) {
     if (!S.stopped || S.done) return { ok: false };
-    if (isG !== isGlobal(S.pos)) return err(isGlobal(S.pos) ? 'Mira la niebla levantada: no hay ningún pico más alto. Es el máximo global.' : `Hay un pico más alto (${gmax}). Este es solo un máximo local.`);
+    if (isG !== isGlobal(S.pos)) return err(isGlobal(S.pos) ? 'Mira el mapa sin niebla: no hay ninguna casilla más alta. Es el máximo global.' : `Hay una casilla más alta (${gmax}). Este es solo un máximo local.`);
     S.done = true; S.asked = true;
-    return good(isGlobal(S.pos) ? 'Correcto: es el máximo global.' : 'Correcto: máximo local. Hill Climbing no puede saltar la bajada para llegar al pico más alto.');
+    return good(isGlobal(S.pos) ? 'Correcto: es el máximo global.' : 'Correcto: máximo local. Hill Climbing no puede bajar para llegar a otro pico más alto.');
   }
   function rand() {
     if (!S.stopped || S.done) return { ok: false };
-    let free = v.map((_, i) => i).filter(i => !S.used.includes(i)); if (!free.length) { S.used = []; free = v.map((_, i) => i); }
-    const p = free[rnd(free.length)]; S.used.push(p); S.pos = p; S.stopped = false; S.revealed = false; S.restarts++;
-    return good(`Reinicio aleatorio: apareces en la posición ${p + 1}. La niebla vuelve.`);
+    let free = []; for (let i = 0; i < rows * cols; i++) if (!S.used.includes(i)) free.push(i); if (!free.length) { S.used = []; for (let i = 0; i < rows * cols; i++) free.push(i); }
+    const k = free[rnd(free.length)]; S.used.push(k); S.pos = [Math.floor(k / cols), k % cols]; S.trail = [S.pos.slice()]; S.known = []; S.phase = 'look'; S.stopped = false; S.revealed = false; S.restarts++;
+    return good(`Reinicio aleatorio: apareces en otra casilla (mide ${cur()}). La niebla vuelve.`);
   }
-  return { S, move, stop, answer, rand, isGlobal, nbrs, bestN };
+  return { S, evaluate, move, stop, answer, rand, nbrs, bestN, isGlobal, isLocal, gmax, vmin };
 }
 
 /* =====================================================================
@@ -560,7 +679,7 @@ const WORLDS = [
     intro: [
       { t: 'DFS se mete a fondo', p: 'Avanza por una rama hasta que no puede seguir, y entonces retrocede (backtracking) para probar otra.', vis: 'stack' },
       { t: 'Usa una pila (LIFO)', p: 'El último nodo que entra es el primero en salir: el tope. Por eso siempre sigues explorando lo más reciente.', vis: 'stack' },
-      { t: 'Reglas de este juego', p: 'DFS marca visitado al SACAR. Un nodo puede estar repetido en la pila: si lo sacas y ya estaba visitado, se descarta. Para visitar primero al vecino alfabéticamente menor, los vecinos se apilan al revés.', vis: null }
+      { t: 'Reglas de este juego', p: 'DFS marca visitado al SACAR. Un nodo puede estar repetido en la pila: si lo sacas y ya estaba visitado, se descarta. Para visitar primero al vecino alfabéticamente menor, los vecinos se apilan al revés. Cuando un nodo no tiene vecinos nuevos, la pila te hace retroceder a la rama anterior. La rama actual se dibuja en azul.', vis: null }
     ], takeaway: 'DFS no garantiza el camino más corto ni el más barato. Gasta poca memoria, pero puede perderse por una rama larga.' },
   { id: 'ucs', name: 'UCS: costo uniforme', code: 'UC', c: '--w4', blurb: 'Saca siempre el nodo más barato, con cola de prioridad.',
     intro: [
@@ -570,7 +689,7 @@ const WORLDS = [
     ], takeaway: 'UCS siempre encuentra el camino de menor costo. BFS cuenta aristas; UCS suma costos, por eso pueden elegir caminos distintos.' },
   { id: 'hc', name: 'Hill Climbing', code: 'HC', c: '--w5', blurb: 'Subir una colina con niebla, y el 8-puzzle con Manhattan.',
     intro: [
-      { t: 'Subir con niebla', p: 'Hill Climbing mira solo a sus vecinos directos, se mueve al mejor y olvida el camino. No guarda ninguna estructura: solo el estado actual.', vis: 'hc' },
+      { t: 'Subir con niebla', p: 'Estás en un terreno cubierto por la niebla y quieres llegar al punto más alto. Hill Climbing evalúa a sus vecinos directos (↑ ↓ ← →), se mueve al mejor y olvida el camino. No guarda ninguna estructura: solo la casilla donde está.', vis: 'hc' },
       { t: 'Cuándo se detiene', p: 'Cuando ningún vecino es mejor. Puede ser el máximo global (lo mejor de todo) o un máximo local (un pico más bajo donde se atasca).', vis: 'hc' },
       { t: 'Heurísticas', p: 'En el 8-puzzle, h₁ cuenta las fichas mal colocadas y h₂ (Manhattan) suma las filas y columnas que le faltan a cada ficha. Se busca h = 0.', vis: null }
     ] },
@@ -587,23 +706,33 @@ const LEVELS = [
   { id: 'b1', w: 'bfs', kind: 'search', name: 'Nivel 1', algo: 'bfs', graph: 'g41R', start: 'B', goal: 'E' },
   { id: 'b2', w: 'bfs', kind: 'search', name: 'Nivel 2', algo: 'bfs', graph: 'g41L', start: '0', goal: '6' },
   { id: 'b3', w: 'bfs', kind: 'search', name: 'Nivel 3', algo: 'bfs', graph: 'd44', start: 'A', goal: 'H' },
+  { id: 'b4', w: 'bfs', kind: 'search', name: 'Nivel 4', algo: 'bfs', graph: 'tree35', start: '3', goal: '8' },
+  { id: 'b5', w: 'bfs', kind: 'search', name: 'Experto: laberinto 5×5', algo: 'bfs', expert: true, lives: 3, make: () => gridCfg(5) },
   { id: 'd0', w: 'dfs', kind: 'search', name: 'Tutorial', tutorial: true, guided: true, algo: 'dfs', graph: 'tree', start: 'A', goal: '' },
   { id: 'd1', w: 'dfs', kind: 'search', name: 'Nivel 1', algo: 'dfs', graph: 'g41R', start: 'B', goal: 'E' },
   { id: 'd2', w: 'dfs', kind: 'search', name: 'Nivel 2', algo: 'dfs', graph: 'g41L', start: '0', goal: '6' },
   { id: 'd3', w: 'dfs', kind: 'search', name: 'Nivel 3', algo: 'dfs', graph: 'd44', start: 'A', goal: 'H' },
+  { id: 'd4', w: 'dfs', kind: 'search', name: 'Nivel 4', algo: 'dfs', graph: 'cities40', start: 'Santiago', goal: 'Granada' },
+  { id: 'd5', w: 'dfs', kind: 'search', name: 'Experto: laberinto 5×5', algo: 'dfs', expert: true, lives: 3, make: () => gridCfg(5) },
   { id: 'u0', w: 'ucs', kind: 'search', name: 'Tutorial', tutorial: true, guided: true, algo: 'ucs', graph: 'd42', start: 'S', goal: 'G', cost: true },
   { id: 'u1', w: 'ucs', kind: 'search', name: 'Nivel 1', algo: 'ucs', graph: 'u13', start: 'S', goal: 'G', cost: true },
   { id: 'u2', w: 'ucs', kind: 'search', name: 'Nivel 2', algo: 'ucs', graph: 'u43', start: 'A', goal: 'F', cost: true },
   { id: 'u3', w: 'ucs', kind: 'search', name: 'Nivel 3', algo: 'ucs', graph: 'd45', start: 'A', goal: 'J', cost: true },
-  { id: 'h0', w: 'hc', kind: 'land', name: 'Tutorial', tutorial: true, guided: true, values: [1, 3, 6, 8, 5, 2], start: 0, question: true },
-  { id: 'h1', w: 'hc', kind: 'land', name: 'Atrapado', values: [2, 4, 6, 5, 3, 5, 8, 10, 7], start: 1, question: true },
-  { id: 'h2', w: 'hc', kind: 'land', name: 'Reinicio aleatorio', values: [3, 5, 4, 2, 6, 9, 7, 3, 5, 8, 6, 2], start: 1, restart: true },
+  { id: 'u4', w: 'ucs', kind: 'search', name: 'Nivel 4', algo: 'ucs', graph: 'cities46', start: 'Málaga', goal: 'Santiago', cost: true },
+  { id: 'u5', w: 'ucs', kind: 'search', name: 'Experto: laberinto 5×5', algo: 'ucs', expert: true, lives: 3, make: () => gridCfg(5) },
+  { id: 'h0', w: 'hc', kind: 'land', name: 'Tutorial', tutorial: true, guided: true, question: true, make: () => terrainCfg(4, 5, 1, false) },
+  { id: 'h1', w: 'hc', kind: 'land', name: 'Atrapado', question: true, make: () => terrainCfg(5, 7, 2, true) },
+  { id: 'h2', w: 'hc', kind: 'land', name: 'Reinicio aleatorio', restart: true, make: () => terrainCfg(6, 8, 3, true) },
   { id: 'h3', w: 'hc', kind: 'puz', name: '8-puzzle con h₁', h: 'h1', s: [1,2,3,0,4,6,7,5,8] },
   { id: 'h4', w: 'hc', kind: 'puz', name: 'Meseta con h₁', h: 'h1', s: [1,2,3,4,5,8,7,6,0], tip: 'Con h₁ todos los vecinos valen igual. Prueba la siguiente pantalla con Manhattan.' },
   { id: 'h5', w: 'hc', kind: 'puz', name: '8-puzzle con Manhattan', h: 'h2', s: [1,2,3,4,5,8,7,6,0], tip: 'Manhattan distingue mejor los estados y permitió un paso más, pero también puede atascarse. Otra salida es el reinicio aleatorio.' },
+  { id: 'h6', w: 'hc', kind: 'land', name: 'Terreno grande', restart: true, make: () => terrainCfg(8, 10, 4, true) },
+  { id: 'h7', w: 'hc', kind: 'puz', name: 'Mezcla con Manhattan', h: 'h2', random: true, make: () => ({ s: scramblePuz(12 + rnd(6)) }) },
+  { id: 'h8', w: 'hc', kind: 'puz', sub: 'route', name: 'Ruta de ciudades', random: true, make: () => { const r = makeRoute(); return { dist: r.dist, s: r.start, opt: r.opt }; } },
   { id: 'q0', w: 'quiz', kind: 'quiz', name: 'Examen relámpago' }
 ];
 LEVELS.forEach(l => { if (l.kind === 'search') l.cost = true; });
+const gridCfg = n => ({ g: makeGrid(n, n, true).g, start: '1,1', goal: n + ',' + n });
 const lvById = id => LEVELS.find(l => l.id === id);
 const worldLevels = w => LEVELS.filter(l => l.w === w);
 
@@ -631,7 +760,7 @@ function gridSVG(lv, S, g) {
     let fill = 'var(--n-idle)', strong = false;
     if (pathSet.has(id)) { fill = 'var(--n-path)'; strong = true; } else if (S.cur === id) { fill = 'var(--n-current)'; strong = true; } else if (resSet.has(id)) fill = 'var(--n-done)'; else if (front.has(id)) fill = 'var(--n-frontier)';
     const ink = strong ? 'var(--on-strong)' : 'var(--ink)';
-    s += `<rect x="${x + 2}" y="${y + 2}" width="${cs - 4}" height="${cs - 4}" rx="6" style="fill:${fill};stroke:${nbr.has(id) ? 'var(--amber)' : id === lv.start ? 'var(--good)' : id === lv.goal ? 'var(--bad)' : 'var(--edge)'};stroke-width:${nbr.has(id) ? 3.5 : (id === lv.start || id === lv.goal) ? 3.5 : 1.2}${nbr.has(id) ? ';stroke-dasharray:5 3' : ''}"/>`;
+    s += `<rect data-node="${id}" x="${x + 2}" y="${y + 2}" width="${cs - 4}" height="${cs - 4}" rx="6" style="fill:${fill};stroke:${nbr.has(id) ? 'var(--amber)' : id === lv.start ? 'var(--good)' : id === lv.goal ? 'var(--bad)' : 'var(--edge)'};stroke-width:${nbr.has(id) ? 3.5 : (id === lv.start || id === lv.goal) ? 3.5 : 1.2}${nbr.has(id) ? ';stroke-dasharray:5 3' : ''}"/>`;
     s += `<text x="${x + 7}" y="${y + 14}" style="fill:${ink};opacity:0.75;font-family:var(--font-data);font-size:10px">${id}</text>`;
     if (id === lv.start) s += `<text x="${x + cs / 2}" y="${y + cs / 2 + 2}" style="fill:${ink};font-weight:800;font-size:22px;text-anchor:middle;dominant-baseline:central">S</text>`;
     else if (id === lv.goal) s += `<text x="${x + cs / 2}" y="${y + cs / 2 + 2}" style="fill:${ink};font-weight:800;font-size:22px;text-anchor:middle;dominant-baseline:central">G</text>`;
@@ -647,10 +776,11 @@ function graphSVG(lv, S) {
   const resSet = new Set(S.result), front = new Set(S.struct.map(i => i.n));
   const nbr = new Set(S.phase === 'push' && S.cur ? g.adj[S.cur].map(e => e.to) : []);
   let s = '';
+  const brOn = (u, v) => { const b = (S.algo === 'dfs' && !S.done && S.branch) ? S.branch : []; for (let k = 0; k < b.length - 1; k++) { if ((b[k] === u && b[k + 1] === v) || (!g.directed && b[k] === v && b[k + 1] === u)) return true; } return false; };
   g.edges.forEach(e => {
-    const q = geom(g, e), on = onPath(e[0], e[1]);
-    s += `<path class="e${on ? ' on' : ''}" d="M${q.a2[0]},${q.a2[1]} Q${q.c[0]},${q.c[1]} ${q.b2[0]},${q.b2[1]}"/>`;
-    if (g.directed) { const [dx, dy] = q.d2, tip = q.b2, bx = tip[0] - dx * 11, by = tip[1] - dy * 11; s += `<polygon class="ah${on ? ' on' : ''}" points="${tip[0]},${tip[1]} ${bx - dy * 5},${by + dx * 5} ${bx + dy * 5},${by - dx * 5}"/>`; }
+    const q = geom(g, e), on = onPath(e[0], e[1]), cu = !on && brOn(e[0], e[1]);
+    s += `<path class="e${on ? ' on' : ''}${cu ? ' cur' : ''}" d="M${q.a2[0]},${q.a2[1]} Q${q.c[0]},${q.c[1]} ${q.b2[0]},${q.b2[1]}"/>`;
+    if (g.directed) { const [dx, dy] = q.d2, tip = q.b2, bx = tip[0] - dx * 11, by = tip[1] - dy * 11; s += `<polygon class="ah${on ? ' on' : ''}${cu ? ' cur' : ''}" points="${tip[0]},${tip[1]} ${bx - dy * 5},${by + dx * 5} ${bx + dy * 5},${by - dx * 5}"/>`; }
   });
   g.edges.forEach(e => { const q = geom(g, e); s += `<text class="w" x="${q.lab[0]}" y="${q.lab[1]}">${e[2]}</text>`; });
   Object.keys(g.nodes).forEach(n => {
@@ -660,7 +790,7 @@ function graphSVG(lv, S) {
     const lab = g.labels ? g.labels[n] : n;
     if (n === lv.start) s += `<circle cx="${x}" cy="${y}" r="26" fill="none" stroke="var(--good)" stroke-width="3.5"/>`;
     if (n === lv.goal) s += `<circle cx="${x}" cy="${y}" r="26" fill="none" stroke="var(--bad)" stroke-width="3.5"/>`;
-    s += `<g class="${cls}"><circle cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}"${g.labels ? ' style="font-size:11px"' : ''}>${lab}</text></g>`;
+    s += `<g class="${cls}" data-node="${n}"><circle cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}"${g.labels ? ' style="font-size:11px"' : ''}>${lab}</text></g>`;
     if (g.labels) s += `<text class="tag" x="${x}" y="${y + 35}" style="text-transform:none;letter-spacing:0">${n}</text>`;
     if (n === lv.start) s += `<text class="tag" x="${x}" y="${g.labels ? y - 33 : y + 43}" style="fill:var(--good)">inicio</text>`;
     if (n === lv.goal) s += `<text class="tag" x="${x}" y="${y - 33}" style="fill:var(--bad)">meta</text>`;
@@ -668,13 +798,13 @@ function graphSVG(lv, S) {
   return `<svg viewBox="0 0 640 340" role="img" aria-label="Grafo del nivel">${s}</svg>`;
 }
 function tokHTML(it, o) {
-  const small = o.showG ? `<small>g=${it.g}</small>` : '';
-  const cls = 'tok' + (o.pulse ? ' pulse' : '');
-  return o.click ? `<button class="${cls}" data-act="${o.act}" data-i="${o.i}" aria-label="Sacar ${it.n}">${it.n}${small}</button>` : `<span class="${cls} static">${it.n}${small}</span>`;
+  const small = (o.showG ? `<small>g=${it.g}</small>` : '') + (o.parent && it.path && it.path.length > 1 ? `<small>de ${it.path[it.path.length - 2]}</small>` : '');
+  const cls = 'tok' + (o.pulse ? ' pulse' : ''), ida = it.id !== undefined ? ` data-id="${it.id}" data-flip="t${it.id}"` : '';
+  return o.click ? `<button class="${cls}"${ida} data-act="${o.act}" data-i="${o.i}" aria-label="Sacar ${it.n}">${it.n}${small}</button>` : `<span class="${cls} static"${ida}>${it.n}${small}</span>`;
 }
 function structHTML(type, items, o) {
   o = o || {};
-  const tk = (it, i) => tokHTML(it, { showG: type === 'pq' || o.showG, click: o.click, act: o.act || 'pop', i, pulse: o.target === i });
+  const tk = (it, i) => tokHTML(it, { showG: type === 'pq' || o.showG, parent: o.parent, click: o.click, act: o.act || 'pop', i, pulse: o.target === i });
   if (type === 'queue') {
     return `<div class="qwrap"><div class="qlab">SALE<br>◀</div><div class="qrow">${items.length ? items.map(tk).join('') : '<span class="sempty">vacía</span>'}</div><div class="qlab">ENTRA<br>▶</div></div>`;
   }
@@ -686,6 +816,7 @@ function structHTML(type, items, o) {
 const sampleItems = [{ n: 'A', g: 4 }, { n: 'B', g: 2 }, { n: 'C', g: 7 }];
 function introVis(v) {
   if (!v) return '';
+  if (v === 'all' || v === 'queue' || v === 'stack' || v === 'pq') return `<div class="vis" id="introDemo" data-type="${v}"></div>`;
   if (v === 'all') return `<div class="vis"><p class="muted" style="margin-bottom:4px">Se metieron A, B, C en ese orden.</p>${structHTML('queue', sampleItems)}<div style="height:10px"></div>${structHTML('stack', sampleItems)}<div style="height:10px"></div>${structHTML('pq', sampleItems)}</div>`;
   if (v === 'hc') return `<div class="vis"><svg viewBox="0 0 320 120" role="img" aria-label="Colina"><path d="M10,110 L50,70 L90,85 L130,40 L170,75 L210,25 L250,60 L310,105" fill="none" stroke="var(--ink)" stroke-width="3"/><circle cx="90" cy="85" r="7" fill="var(--n-current)"/><text class="tag" x="210" y="16">máx. global</text><text class="tag" x="130" y="32">máx. local</text></svg></div>`;
   return `<div class="vis">${structHTML(v, sampleItems)}</div>`;
@@ -698,40 +829,178 @@ const app = $('app');
 const ui = { free: { algo: 'bfs', board: 'graph' }, screen: 'home', lv: null, game: null, intro: 0, sb: null, quiz: null };
 function go(screen) { ui.screen = screen; render(); try { window.scrollTo(0, 0); } catch (e) { /* sin scroll */ } }
 function startLevel(id, skipIntro) {
-  const lv = lvById(id); ui.lv = lv;
+  stopDemo();
+  let lv = lvById(id); if (lv.make) lv = { ...lv, ...lv.make() };
+  ui.lv = lv;
   const w = WORLDS.find(x => x.id === lv.w);
   if (lv.tutorial && !skipIntro && w.intro) { ui.intro = 0; return go('intro'); }
   if (lv.kind === 'search') ui.game = SearchGame(lv);
   else if (lv.kind === 'struct') ui.game = StructGame(lv.type, lv.ops);
   else if (lv.kind === 'land') ui.game = LandGame(lv);
   else if (lv.kind === 'puz') ui.game = PuzGame(lv);
-  else if (lv.kind === 'sandbox') ui.sb = { type: 'queue', items: [], n: 0, out: [], fb: { t: 'info', m: 'Mete elementos y luego haz clic en el que crees que saldría.' } };
+  else if (lv.kind === 'sandbox') ui.sb = { uid: 0, type: 'queue', items: [], n: 0, out: [], fb: { t: 'info', m: 'Mete elementos y luego haz clic en el que crees que saldría.' } };
   else if (lv.kind === 'quiz') ui.quiz = makeQuiz();
   go(lv.kind === 'search' ? 'play' : lv.kind);
 }
+const demo = { on: false, t1: null, t2: null };
+function stopDemo() { demo.on = false; clearTimeout(demo.t1); clearTimeout(demo.t2); }
+const demoBtn = () => `<button class="btn sm" data-act="demo">${demo.on ? 'Detener demostración' : '▶ Ver demostración'}</button>`;
+const retryLabel = () => (ui.lv && ui.lv.free ? 'Reiniciar con valores nuevos' : 'Reiniciar nivel');
+const demoize = (html, S) => (S && S.demo && html ? html.replace(/<h3>[\s\S]*?<\/h3>/, '<h3>Demostración terminada: ahora inténtalo tú</h3>') : html);
+function demoTarget() {
+  const g = ui.game, S = g && g.S, q = x => app.querySelector(x);
+  if (!S || S.done) return null;
+  if (ui.screen === 'play') {
+    if (S.phase === 'pop') return q(`[data-act="pop"][data-i="${g.expectedPop()}"]`);
+    if (S.phase === 'decide') return q(`[data-act="decide"][data-v="${S.expectDecision}"]`);
+    return S.expectPush.length ? q(`[data-act="push"][data-n="${S.expectPush[0].to}"]`) : q('[data-act="finish"]');
+  }
+  if (ui.screen === 'struct') return q(`[data-act="pop"][data-i="${g.expected()}"]`);
+  if (ui.screen === 'land') {
+    if (S.stopped) return S.cfg.question ? q(`[data-act="hl-ans"][data-v="${g.isGlobal(S.pos) ? 1 : 0}"]`) : q('[data-act="hl-rand"]');
+    if (S.phase === 'look') { const u = g.nbrs().find(p => !S.known.includes(p.k)); return u ? q(`[data-act="hl2-eval"][data-r="${u.r}"][data-c="${u.c}"]`) : null; }
+    const b = g.bestN(); return S.v[b.r][b.c] > S.v[S.pos[0]][S.pos[1]] ? q(`[data-act="hl2-move"][data-r="${b.r}"][data-c="${b.c}"]`) : q('[data-act="hl-stop"]');
+  }
+  if (ui.screen === 'puz') {
+    if (S.stuck) return q('[data-act="prand"]');
+    if (S.phase === 'ask') { const i = $('hin'); if (i) i.value = String(g.cur()); return q('[data-act="ask"]'); }
+    const nbs = g.nbs(S.s), hs = nbs.map(n => g.h(n.s)), min = Math.min(...hs);
+    return min < g.cur() ? q(`[data-act="choose"][data-i="${hs.indexOf(min)}"]`) : q('[data-act="pstop"]');
+  }
+  return null;
+}
+function demoLoop() {
+  if (!demo.on) return;
+  const g = ui.game; if (!g || g.S.done) { stopDemo(); render(); return; }
+  const el = demoTarget(); if (!el) { stopDemo(); render(); return; }
+  el.classList.add('pulse');
+  demo.t1 = setTimeout(() => {
+    if (!demo.on) return;
+    const rect = el.getBoundingClientRect();
+    act(el.dataset.act, Object.assign({}, el.dataset), rect);
+    demo.t2 = setTimeout(demoLoop, 1100);
+  }, 750);
+}
+function startDemo() {
+  if (!ui.game || ui.game.S.done) return;
+  ui.game.S.demo = true; demo.on = true; render(); demoLoop();
+}
+let introTimer = null;
+function stopIntro() { if (introTimer) { clearInterval(introTimer); introTimer = null; } }
+function startIntroAnim() {
+  stopIntro(); const box = $('introDemo'); if (!box) return;
+  const kind = (box.dataset && box.dataset.type) || 'queue', types = kind === 'all' ? ['queue', 'stack', 'pq'] : [kind];
+  if (!ANIM) { box.innerHTML = structHTML(types[0], sampleItems); return; }
+  const script = ['+A:4', '+B:2', '+C:7', '-', '-', '-'];
+  let ti = 0, si = 0, items = [], out = [], uid = 0, type = types[0];
+  const exp = () => { if (type === 'queue') return 0; if (type === 'stack') return items.length - 1; let b = 0; items.forEach((it, k) => { if (it.g < items[b].g) b = k; }); return b; };
+  const why = { queue: 'sale el primero que entró', stack: 'sale el último que entró (el tope)', pq: 'sale el de menor g' };
+  function draw(cap) {
+    const snap = snapFlip(box);
+    box.innerHTML = `<div class="cap">${cap}</div><h2>${STRUCT_NAME[type]}</h2>${structHTML(type, items, {})}<div class="chips" style="margin-top:10px"><span class="muted">Salidas:</span>${out.map(n => `<span class="chip res">${n}</span>`).join('') || '<span class="empty">ninguna</span>'}</div>`;
+    return snap;
+  }
+  function tick() {
+    const op = script[si];
+    if (op === undefined) { si = 0; items = []; out = []; ti = (ti + 1) % types.length; type = types[ti]; draw(types.length > 1 ? `Ahora veamos: ${STRUCT_NAME[type]}` : 'Otra vez desde el principio'); return; }
+    si++;
+    if (op[0] === '+') {
+      const [n, g] = op.slice(1).split(':'); items.push({ id: ++uid, n, g: +g });
+      const snap = draw(`Meter ${n}${type === 'pq' ? ` (g = ${g})` : ''}: entra ${type === 'stack' ? 'por arriba' : type === 'pq' ? 'a la bolsa' : 'por la derecha'}`);
+      applyFlip(box, snap).forEach(scaleIn);
+    } else {
+      const k = exp(), it = items[k], el = box.querySelector(`[data-id="${it.id}"]`), from = el && el.getBoundingClientRect();
+      items.splice(k, 1); out.push(it.n);
+      const snap = draw(`SACAR: ${why[type]}, sale ${it.n}`);
+      applyFlip(box, snap);
+      const chip = box.querySelector('.chip.res:last-child');
+      if (chip && from) { chip.style.visibility = 'hidden'; ghost(it.n, from, chip.getBoundingClientRect(), { done: () => { chip.style.visibility = ''; } }); }
+    }
+  }
+  draw('Mira cómo entran y salen los elementos'); introTimer = setInterval(tick, 1300);
+}
+const NAV = ['home', 'level', 'retry', 'next', 'free-new', 'free-algo', 'free-board', 'intro-prev', 'intro-next'];
+function selOf(a, d) {
+  let q = `[data-act="${a}"]`;
+  ['i', 'n', 'v', 'd', 't', 'r', 'c'].forEach(k => { if (d[k] !== undefined) q += `[data-${k}="${d[k]}"]`; });
+  return q;
+}
+function fillsNow() {
+  const m = {};
+  app.querySelectorAll('[data-node]').forEach(el => { const c = el.tagName.toLowerCase() === 'g' ? el.querySelector('circle') : el; if (c) m[el.dataset.node] = getComputedStyle(c).fill; });
+  return m;
+}
+function preCtx() {
+  const g = ui.game, S = g && g.S;
+  if (ui.screen === 'play' && S) return { mist: S.mistakes, len: S.struct.length, cur: S.cur };
+  if (ui.screen === 'struct' && S) return { mist: S.mistakes, out: S.out.length };
+  if (ui.screen === 'sandbox') return { out: ui.sb.out.length };
+  if (S && typeof S.mistakes === 'number') return { mist: S.mistakes };
+  return {};
+}
+function afterAct(b, a, d, src) {
+  const fresh = applyFlip(app, b.flip);
+  app.querySelectorAll('[data-node]').forEach(el => {
+    const c = el.tagName.toLowerCase() === 'g' ? el.querySelector('circle') : el; if (!c) return;
+    const o = b.fills[el.dataset.node], n = getComputedStyle(c).fill;
+    if (o && o !== n) c.animate([{ fill: o }, { fill: n }], { duration: 750 });
+  });
+  const g = ui.game, S = g && g.S, sb = ui.sb;
+  const bad = ui.screen === 'sandbox' ? (sb.fb && sb.fb.t === 'err') : (b.pre.mist !== undefined && S && S.mistakes > b.pre.mist);
+  if (bad) { shake(app.querySelector(selOf(a, d))); return; }
+  const lastChip = () => { const l = app.querySelectorAll('.chip.res'); return l[l.length - 1]; };
+  const newTok = fresh.filter(el => /^t\d+$/.test(el.dataset.flip || ''));
+  let flown = false;
+  const flyTo = (el, text) => { if (!el || !src) return; flown = true; el.style.visibility = 'hidden'; ghost(text, src, el.getBoundingClientRect(), { done: () => { el.style.visibility = ''; } }); };
+  if (ui.screen === 'play' && S) {
+    const nodeEl = c => app.querySelector(`[data-node="${c}"]`);
+    if (a === 'pop' && S.struct.length < b.pre.len && S.cur && src) { const nd = nodeEl(S.cur); if (nd) ghost(S.cur, src, nd.getBoundingClientRect(), { done: () => burst(nd) }); }
+    else if (a === 'push') flyTo(newTok[0], d.n);
+    else if (a === 'decide') {
+      if (S.cur) burst(nodeEl(S.cur));
+      else { const nd = nodeEl(b.pre.cur); if (nd) { const r = nd.getBoundingClientRect(); ghost('✗', r, { left: r.left, top: r.top - 40, width: r.width, height: r.height }, { cls: 'x', fade: true, ms: 800 }); } }
+    }
+  } else if (ui.screen === 'struct' && S && a === 'pop' && S.out.length > b.pre.out) flyTo(lastChip(), S.out[S.out.length - 1]);
+  else if (ui.screen === 'sandbox') {
+    if (a === 'pop' && sb.out.length > b.pre.out) flyTo(lastChip(), sb.out[sb.out.length - 1]);
+    else if (a === 'sb-push') flyTo(newTok[0], sb.items[sb.items.length - 1].n);
+  }
+  if (ui.screen === 'land' && a === 'hl2-eval') { const cell = app.querySelector(`[data-r="${d.r}"][data-c="${d.c}"]`); if (cell) scaleIn(cell); }
+  newTok.forEach(el => { if (!(flown && el.style.visibility === 'hidden')) scaleIn(el); });
+}
+function act(a, d, src) {
+  if (NAV.includes(a)) stopDemo();
+  if (!ANIM || NAV.includes(a)) return doAct(a, d);
+  const scr = ui.screen, lid = ui.lv && ui.lv.id;
+  const before = { flip: snapFlip(app), fills: fillsNow(), pre: preCtx() };
+  const r = doAct(a, d);
+  if (ui.screen === scr && (ui.lv && ui.lv.id) === lid) { try { afterAct(before, a, d, src); } catch (e) { /* una animación nunca debe romper el juego */ } }
+  return r;
+}
 function endBtns(nxt) {
-  if (ui.lv && ui.lv.free) return '<button class="btn" data-act="retry">Repetir esta partida</button><button class="btn primary" data-act="free-new">Nueva partida</button>';
+  if (ui.lv && ui.lv.free) return '<button class="btn" data-act="retry">Mismo mapa, valores nuevos</button><button class="btn primary" data-act="free-new">Nueva partida</button>';
   return '<button class="btn" data-act="retry">Repetir</button>' + (nxt ? '<button class="btn primary" data-act="next">Siguiente nivel</button>' : '');
 }
 function finishLevel(stars) {
-  if (!ui.lv || ui.lv.free) return;
+  if (!ui.lv || ui.lv.free || (ui.game && ui.game.S && ui.game.S.demo && ui.screen !== 'quiz')) return;
   saveLevel(ui.lv.id, stars);
 }
 function nextLevelId() {
-  const i = LEVELS.indexOf(ui.lv); return LEVELS[i + 1] ? LEVELS[i + 1].id : null;
+  const i = LEVELS.findIndex(l => l.id === ui.lv.id); return LEVELS[i + 1] ? LEVELS[i + 1].id : null;
 }
 
-function randomLand() {
+function randomLand(n) {
+  n = n || 10; const need = n > 10 ? 3 : 2;
   for (;;) {
-    const n = 10, v = Array.from({ length: n }, () => 1 + rnd(12)), gm = Math.max(...v);
+    const v = Array.from({ length: n }, () => 1 + rnd(12)), gm = Math.max(...v);
     const peaks = v.filter((x, i) => (i === 0 || v[i - 1] < x) && (i === n - 1 || v[i + 1] < x)).length;
-    if (peaks >= 2 && v.filter(x => x === gm).length === 1) return v;
+    if (peaks >= need && v.filter(x => x === gm).length === 1) return v;
   }
 }
-function makeFree(sel) {
-  const base = { id: 'free', free: true, w: 'free' };
+function makeFree(sel, forceKey) {
+  const base = { id: 'free', free: true, w: 'free', sel: { ...sel } };
   if (sel.algo === 'hc') {
-    if (sel.board === 'land') return { ...base, kind: 'land', name: 'Colina aleatoria', values: randomLand(), start: 0, restart: true };
+    if (sel.board === 'land') return { ...base, kind: 'land', name: 'Terreno con niebla', restart: true, ...terrainCfg(6, 8, 3, true) };
     if (sel.board === 'route') { const r = makeRoute(); return { ...base, kind: 'puz', sub: 'route', name: 'Ruta de ciudades', dist: r.dist, s: r.start, opt: r.opt, random: true }; }
     return { ...base, kind: 'puz', name: sel.board === 'puz2' ? '8-puzzle con Manhattan' : '8-puzzle con h₁', h: sel.board === 'puz2' ? 'h2' : 'h1', s: scramblePuz(10 + rnd(5)), random: true };
   }
@@ -739,11 +1008,11 @@ function makeFree(sel) {
     const gg = makeGrid(4, 4, true);
     return { ...base, kind: 'search', algo: sel.algo, name: 'Cuadrícula 4×4', g: gg.g, start: '1,1', goal: '4,4', cost: true };
   }
-  const key = FREE_KEYS[rnd(FREE_KEYS.length)], def = GR[key], meta = FREE_META[key];
+  const key = forceKey || FREE_KEYS[rnd(FREE_KEYS.length)], def = GR[key], meta = FREE_META[key];
   const wf = def.labels ? () => 100 + rnd(51) * 10 : () => 1 + rnd(9);
   const g = { directed: def.directed, nodes: def.nodes, labels: def.labels, edges: def.edges.map(([u, v, , o]) => [u, v, wf(), o]) };
   buildAdj(g);
-  return { ...base, kind: 'search', algo: sel.algo, name: FREE_NAME[key], g, start: meta[0], goal: meta[1], cost: true };
+  return { ...base, mapKey: key, kind: 'search', algo: sel.algo, name: FREE_NAME[key], g, start: meta[0], goal: meta[1], cost: true };
 }
 function launch(lv) {
   ui.lv = lv;
@@ -752,9 +1021,9 @@ function launch(lv) {
 }
 function freePanel() {
   const f = ui.free, algos = [['bfs', 'BFS'], ['dfs', 'DFS'], ['ucs', 'UCS'], ['hc', 'Hill Climbing']];
-  const boards = f.algo === 'hc' ? [['land', 'Colina con niebla'], ['puz1', '8-puzzle h₁'], ['puz2', '8-puzzle Manhattan'], ['route', 'Ruta de ciudades']] : [['graph', 'Grafo de las diapositivas'], ['grid', 'Cuadrícula (como el robot)']];
+  const boards = f.algo === 'hc' ? [['land', 'Terreno con niebla'], ['puz1', '8-puzzle h₁'], ['puz2', '8-puzzle Manhattan'], ['route', 'Ruta de ciudades']] : [['graph', 'Grafo de las diapositivas'], ['grid', 'Cuadrícula (como el robot)']];
   const btn = (act, v, label, on) => `<button class="btn sm${on ? ' primary' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
-  return `<div class="panel"><h2>Partida aleatoria</h2><p class="muted">Un grafo o cuadrícula de tus diapositivas con inicio y meta fijos. Los costos, los muros y los valores cambian en cada partida, y todo se mueve a mano.</p>
+  return `<div class="panel"><h2>Partida aleatoria</h2><p class="muted">Un grafo o cuadrícula de tus diapositivas con inicio y meta fijos. Los costos, los muros y los valores cambian en cada partida y cada vez que reinicias. Todo se mueve a mano.</p>
     <div class="picker"><div class="row"><span class="lab">Algoritmo</span>${algos.map(a => btn('free-algo', a[0], a[1], f.algo === a[0])).join('')}</div>
     <div class="row"><span class="lab">Tablero</span>${boards.map(b => btn('free-board', b[0], b[1], f.board === b[0])).join('')}</div>
     <div class="row"><button class="btn primary" data-act="free-new">Jugar partida aleatoria</button></div></div></div>`;
@@ -769,10 +1038,10 @@ function useHint(level) {
   let t;
   if (lv.kind === 'search') t = level === 1 ? RULES[S.algo] : level === 2 ? coachText(game) : 'Marqué en pantalla el siguiente paso correcto.';
   else if (lv.kind === 'land') {
-    const b = game.bestN(), up = S.v[b] > S.v[S.pos];
-    t = level === 1 ? 'Hill Climbing mira solo a sus vecinos, se mueve al mejor y para cuando ninguno mejora. Si te atrapa un pico local, usa el reinicio aleatorio.'
-      : level === 2 ? (S.stopped ? 'Ya paraste. Si no es el pico más alto, usa el reinicio aleatorio.' : up ? `Tu altura es ${S.v[S.pos]} y el mejor vecino mide ${S.v[b]}: muévete hacia allá.` : 'Ningún vecino es más alto que tú: pulsa Parar.')
-      : 'Marqué el botón correcto.';
+    const b = game.bestN(), cv = S.v[S.pos[0]][S.pos[1]], up = S.v[b.r][b.c] > cv;
+    t = level === 1 ? 'Hill Climbing mira solo a sus vecinos directos: los evalúa todos, se mueve al mejor y para cuando ninguno mejora. Si te atrapa un pico local, usa el reinicio aleatorio.'
+      : level === 2 ? (S.stopped ? 'Ya paraste. Si no es la casilla más alta, usa el reinicio aleatorio.' : S.phase === 'look' ? `Haz clic en las casillas con ? alrededor de tu posición. Faltan ${game.nbrs().length - S.known.length}.` : up ? `El mejor vecino mide ${S.v[b.r][b.c]} y tú estás en ${cv}: ve hacia ${b.dir}.` : 'Ningún vecino es más alto que tu casilla: pulsa Parar.')
+      : 'Marqué en pantalla el siguiente paso correcto.';
   } else {
     const route = S.kind === 'route';
     t = level === 1 ? (route ? 'La distancia total suma cada tramo entre ciudades consecutivas. Un vecino es la ruta que resulta de intercambiar dos ciudades. Se busca la menor.' : S.hk === 'h1' ? 'h₁ cuenta las fichas (sin el hueco) fuera de su sitio. Se elige el vecino con menor h₁; h = 0 es la meta.' : 'h₂ suma |filas| + |columnas| que le faltan a cada ficha. Se elige el vecino con menor h₂; h = 0 es la meta.')
@@ -820,38 +1089,51 @@ function coachText(game) {
   if (S.phase === 'decide') return S.expectDecision === 'discard' ? `${S.cur} ya estaba ${a === 'ucs' ? 'expandido' : 'visitado'} (mira Resultado). Pulsa Descartarlo.` : `${S.cur} aún no estaba ${a === 'ucs' ? 'expandido' : 'visitado'}. Pulsa ${a === 'ucs' ? 'Expandirlo' : 'Visitarlo'}.`;
   if (!S.expectPush.length) return 'No quedan vecinos nuevos que meter. Pulsa Terminar de meter.';
   return { bfs: 'Haz clic en los vecinos que aún no estén visitados, en ' + S.ord + '. Los marcados con borde punteado en el grafo son los vecinos de ' + S.cur + '.',
-    dfs: 'Apila los vecinos sin visitar al revés, así el primero de ' + S.ord + ' queda arriba y sale primero.',
+    dfs: 'Apila los vecinos sin visitar al revés, así el primero según ' + S.ord + ' queda arriba y sale primero.',
     ucs: 'Mete cada vecino aún no expandido. Su g es el g de ' + S.cur + ' más el costo de la arista.' }[a];
 }
 function renderPlay() {
   const game = ui.game, S = game.S, lv = ui.lv, a = S.algo, T = game.target(), show = (lv.guided || S.showHint) && !S.done;
   const w = WORLDS.find(x => x.id === lv.w);
-  const stats = lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>`;
-  const struct = structHTML(TYPE_BY_ALGO[a], S.struct, { click: true, target: show && T.k === 'pop' ? T.i : -1, showG: true });
+  const stats = lv.lives ? `<span class="pill${S.mistakes ? ' err' : ''}">vidas ${Math.max(0, lv.lives - S.mistakes)}</span>` : lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span>`;
+  const struct = structHTML(TYPE_BY_ALGO[a], S.struct, { click: true, target: show && T.k === 'pop' ? T.i : -1, showG: true, parent: a === 'dfs' });
   let action = '';
-  if (S.done) action = resultCard(game);
-  else if (S.phase === 'pop') action = `<div class="panel"><h2>Tu turno · sacar</h2><p>Saca un nodo de la estructura: haz clic en él.</p></div>`;
-  else if (S.phase === 'decide') action = `<div class="panel"><h2>Tu turno · decidir</h2><p>Sacaste <b class="mono">${S.cur}</b>. ¿Qué haces con él?</p><div class="btns">
+  const stp = stepper(S), wd = a === 'ucs' ? 'expandido' : 'visitado';
+  if (S.done) action = S.failed ? failCard() : resultCard(game);
+  else if (S.phase === 'pop') action = `<div class="panel">${stp}<p class="instr"><b>Tu turno:</b> elige qué nodo sale de la estructura. <b>Haz clic en su ficha</b> (en el recuadro de la izquierda).</p></div>`;
+  else if (S.phase === 'decide') action = `<div class="panel">${stp}<p class="instr">Sacaste <b class="mono">${S.cur}</b>. Mira la lista de <b>${wd}s</b>: ¿ya estaba ahí? Elige qué hacer.</p><div class="btns">
     <button class="btn primary${show && T.v === 'expand' ? ' pulse' : ''}" data-act="decide" data-v="expand">${a === 'ucs' ? 'Expandirlo' : 'Visitarlo'}</button>
-    <button class="btn${show && T.v === 'discard' ? ' pulse' : ''}" data-act="decide" data-v="discard">Descartarlo (ya estaba ${a === 'ucs' ? 'expandido' : 'visitado'})</button></div></div>`;
+    <button class="btn${show && T.v === 'discard' ? ' pulse' : ''}" data-act="decide" data-v="discard">Descartarlo (ya estaba ${wd})</button></div></div>`;
   else {
     const g = gOf(lv);
-    action = `<div class="panel"><h2>Tu turno · meter vecinos de ${S.cur}</h2><p>Haz clic en cada vecino que corresponda meter.</p><div class="tray">${g.adj[S.cur].map(e => {
+    action = `<div class="panel">${stp}<p class="instr">Mete los vecinos de <b class="mono">${S.cur}</b> en la estructura. <b>Haz clic en cada vecino</b> que corresponda (en el grafo tienen borde punteado). El número pequeño es el costo de llegar a él desde ${S.cur}.</p><div class="tray">${g.adj[S.cur].map(e => {
       const used = S.pushed.includes(e.to);
       return `<button class="tok sm${used ? ' used' : ''}${show && T.k === 'push' && T.n === e.to ? ' pulse' : ''}" data-act="push" data-n="${e.to}"${used ? ' disabled' : ''}>${e.dir ? e.dir + ' ' : ''}${e.to}<small>+${e.w}</small></button>`;
     }).join('')}</div><button class="btn primary${show && T.k === 'finish' ? ' pulse' : ''}" data-act="finish">Terminar de meter</button></div>`;
   }
   const coach = lv.guided && !S.done ? `<div class="coach"><b class="t">Tutor</b>${coachText(game)}</div>` : '';
   const fb = S.fb ? `<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>` : '';
-  const hintBtn = !lv.guided && !S.done ? hintPanel(game) : '';
-  const note = a === 'ucs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. UCS saca siempre el menor.</p>'
+  const hintBtn = !lv.guided && !lv.expert && !S.done ? hintPanel(game) : '';
+  const note = a === 'dfs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">La pila guarda lo que falta por probar. Siempre sigues por la ficha de <b>arriba</b> (la última que descubriste): por eso bajas por una rama hasta el fondo. Una ficha puede aparecer repetida (la apilaron dos vecinos distintos): la segunda vez que salga se descarta. Debajo de cada ficha dice de qué nodo viene.</p>' : a === 'ucs' ? '<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. UCS saca siempre el menor.</p>'
     : `<p class="muted" style="margin:8px 0 0;font-size:0.85rem">g = costo acumulado desde el inicio. ${a === 'bfs' ? 'BFS' : 'DFS'} no lo usa para decidir, pero sirve para comparar con UCS.</p>`;
   return `${topbar(w.name + ' · ' + lv.name, lv.algo.toUpperCase() + (lv.goal ? `: de ${lv.start} a ${lv.goal}` : `: recorrido desde ${lv.start}`), stats)}
   <div class="game"><div class="stack"><div class="panel">${graphSVG(lv, S)}<div class="legend"><span><i style="background:transparent;border:3px solid var(--good)"></i>inicio</span><span><i style="background:transparent;border:3px solid var(--bad)"></i>meta</span><span><i style="background:var(--n-frontier)"></i>en la estructura</span><span><i style="background:var(--n-current)"></i>nodo sacado</span><span><i style="background:var(--n-done)"></i>${a === 'ucs' ? 'expandido' : 'visitado'}</span><span><i style="background:var(--n-path)"></i>camino final</span></div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">Los números sobre las líneas son el costo de cada movimiento.</p></div>
     <div class="panel"><h2>${STRUCT_NAME[TYPE_BY_ALGO[a]]} · ${GOLD[a]}</h2>${struct}${note}</div></div>
-  <div class="stack">${fb}${coach}${action}
+  <div class="stack">${fb}${coach}${S.done ? demoize(action, S) : action}
     <div class="panel"><h2>${a === 'ucs' ? 'Expandidos' : 'Visitados'} (orden)</h2><div class="chips">${S.result.length ? S.result.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">ninguno todavía</span>'}</div></div>
-    ${hintBtn}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+    ${a === 'dfs' ? branchPanel(S) : ''}
+    <div class="panel"><h2>Lo que ha pasado</h2>${S.log.length ? `<ol class="log">${S.log.slice(-6).map(t => `<li>${t}</li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Todavía no has hecho nada. Empieza sacando el nodo inicial.</p>'}</div>
+    ${hintBtn}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
+}
+function branchPanel(S) {
+  return `<div class="panel"><h2>Rama actual (de dónde vienes)</h2><div class="chips">${S.branch.map((n, i) => `${i ? '<span class="muted">›</span>' : ''}<span class="chip res">${n}</span>`).join('')}</div><p class="muted" style="margin:6px 0 0;font-size:0.85rem">En el grafo, la rama actual se dibuja en azul. Si llegas a un callejón sin salida, la pila te hace retroceder.</p></div>`;
+}
+function stepper(S) {
+  const steps = S.algo === 'bfs' ? [['pop', 'Sacar un nodo'], ['push', 'Meter vecinos']] : [['pop', 'Sacar un nodo'], ['decide', 'Decidir'], ['push', 'Meter vecinos']];
+  return `<div class="stepper">${steps.map(([k, l], i) => `${i ? '<span class="arr">→</span>' : ''}<span class="st${S.phase === k ? ' on' : ''}"><b>${i + 1}</b>${l}</span>`).join('')}</div>`;
+}
+function failCard() {
+  return `<div class="panel result"><h2>Sin vidas</h2><h3>Demasiados errores</h3><p class="muted">En el nivel experto solo se permiten ${ui.lv.lives} errores y no hay pistas.</p><div class="btns"><button class="btn primary" data-act="retry">Intentar de nuevo</button></div></div>`;
 }
 function minCost(g, s0, t) {
   const d = { [s0]: 0 }, q = new Set(Object.keys(g.adj));
@@ -887,7 +1169,7 @@ function renderStruct() {
     ${S.done ? '' : '<p class="muted" style="margin-top:10px;margin-bottom:0">Toca SACAR: haz clic en el elemento que saldría.</p>'}</div>
     ${S.fb ? `<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>` : ''}
     <div class="panel"><h2>Salidas</h2><div class="chips">${S.out.length ? S.out.map(n => `<span class="chip res">${n}</span>`).join('') : '<span class="empty">nada ha salido aún</span>'}</div></div>
-    ${done}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+    ${demoize(done, S)}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
 }
 function renderSandbox() {
   const sb = ui.sb;
@@ -902,57 +1184,70 @@ function renderSandbox() {
 }
 /* ---- colina ---- */
 function renderLand() {
-  const game = ui.game, S = game.S, lv = ui.lv, v = S.v, n = v.length, gmax = Math.max(...v);
-  const W = 640, bw = W / n, base = 235, sc = 190 / gmax;
-  let svg = '';
-  v.forEach((val, i) => {
-    const vis = S.revealed || Math.abs(i - S.pos) <= 1, x = i * bw + 5, w = bw - 10;
-    const localPeak = (i === 0 || v[i - 1] < val) && (i === n - 1 || v[i + 1] < val);
-    let cls = 'bar' + (vis ? '' : ' fog');
-    if (i === S.pos) cls += ' here'; else if (S.revealed && val === gmax) cls += ' glob'; else if (S.revealed && localPeak) cls += ' loc';
-    const h = vis ? val * sc : 36;
-    svg += `<rect class="${cls}" x="${x}" y="${base - h}" width="${w}" height="${h}" rx="4"/>`;
-    svg += vis ? `<text class="vl" x="${x + w / 2}" y="${base - h - 8}">${val}</text>` : `<text class="vl" x="${x + w / 2}" y="${base - 12}" style="fill:var(--muted)">?</text>`;
-    if (i === S.pos) svg += `<text class="tag" x="${x + w / 2}" y="${base + 20}">tú</text>`;
-    if (i === S.cfg.start) svg += `<text class="tag" x="${x + w / 2}" y="${base + 36}" style="fill:var(--good)">inicio</text>`;
-    if (S.revealed && val === gmax) svg += `<text class="tag" x="${x + w / 2}" y="${base - h - 24}" style="fill:var(--good)">global</text>`;
-    else if (S.revealed && localPeak) svg += `<text class="tag" x="${x + w / 2}" y="${base - h - 24}" style="fill:var(--bad)">local</text>`;
-  });
-  const T = (lv.guided || S.showHint) && !S.done;
-  const b = game.bestN(), canImprove = v[b] > v[S.pos];
-  const dirBest = b - S.pos;
-  const ctl = S.done ? (() => { const stars = lv.restart ? starsFor(Math.max(0, S.restarts - 2) + (S.restarts > 4 ? 1 : 0)) : starsFor(S.mistakes); finishLevel(lv.guided ? 0 : stars); const nxt = nextLevelId();
-      return `<div class="panel result"><h2>Nivel completado</h2>${lv.guided ? '<h3>Tutorial superado ✓</h3>' : `<h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores${lv.restart ? ` · ${S.restarts} reinicios` : ''}</h3>`}
-      <p class="muted">Hill Climbing solo mira a sus vecinos y no guarda el camino: puede quedarse en un máximo local. El reinicio aleatorio ayuda a escapar.</p>
-      <div class="btns">${endBtns(nxt)}</div></div>`; })()
-    : S.stopped && lv.question ? `<div class="panel"><h2>Pregunta</h2><p>Se levantó la niebla. El pico donde te detuviste es:</p><div class="btns"><button class="btn" data-act="hl-ans" data-v="1">Máximo global</button><button class="btn" data-act="hl-ans" data-v="0">Máximo local</button></div></div>`
-    : S.stopped ? `<div class="panel"><h2>Atrapado</h2><p>Estás en un máximo local. Hill Climbing no puede salir solo.</p><button class="btn primary" data-act="hl-rand">Reinicio aleatorio</button></div>`
-    : `<div class="panel"><h2>Tu turno</h2><p>Elige: moverte al mejor vecino o parar si ninguno mejora.</p><div class="btns">
-        <button class="btn${T && canImprove && dirBest < 0 ? ' pulse' : ''}" data-act="hl-move" data-d="-1">◀ Izquierda</button>
-        <button class="btn${T && !canImprove ? ' pulse' : ''}" data-act="hl-stop">■ Parar</button>
-        <button class="btn${T && canImprove && dirBest > 0 ? ' pulse' : ''}" data-act="hl-move" data-d="1">Derecha ▶</button></div></div>`;
-  const coach = lv.guided && !S.done ? `<div class="coach"><b class="t">Tutor</b>${S.stopped ? 'Mira la niebla levantada y responde.' : canImprove ? `Tu altura es ${v[S.pos]}. El mejor vecino mide ${v[b]}: muévete hacia allá.` : 'Ningún vecino es más alto que tú. Pulsa Parar.'}</div>` : '';
-  return `${topbar('Hill Climbing · ' + lv.name, 'Sube la colina con niebla', lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span>`)}
-  <div class="game"><div class="panel"><svg viewBox="0 0 640 270" role="img" aria-label="Terreno con niebla">${svg}</svg>
-    <p class="muted" style="margin:6px 0 0;font-size:0.88rem">Las columnas grises con "?" están cubiertas por la niebla: solo ves tu columna y las vecinas.</p></div>
-  <div class="stack">${coach}<div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${ctl}
-    ${!lv.guided && !S.done ? hintPanel(game) : ''}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+  const game = ui.game, S = game.S, lv = ui.lv, rows = S.rows, cols = S.cols;
+  const cur = S.v[S.pos[0]][S.pos[1]], nb = game.nbrs(), nbk = {}; nb.forEach(p => { nbk[p.k] = p; });
+  const best = game.bestN(), improve = S.v[best.r][best.c] > cur, T = (lv.guided || S.showHint) && !S.done;
+  const firstUnknown = nb.find(p => !S.known.includes(p.k)), trail = new Set(S.trail.map(p => p[0] * cols + p[1]));
+  let cells = '';
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c, val = S.v[r][c], here = r === S.pos[0] && c === S.pos[1], p = nbk[k];
+    let cls = 'cell', inner = '', attr = '', tag = 'div', style = '';
+    if (here) { cls += ' here'; inner = `<span class="ball" data-flip="you">tú</span>${val}`; }
+    else if (S.revealed) {
+      const pct = Math.round((val - game.vmin) / ((game.gmax - game.vmin) || 1) * 100);
+      style = ` style="background:color-mix(in srgb, var(--n-path) ${pct}%, var(--n-idle))"`;
+      inner = `${val}${val === game.gmax ? '<span class="tag2">global</span>' : game.isLocal(r, c) ? '<span class="tag2">local</span>' : ''}`;
+    } else if (p) {
+      tag = 'button';
+      if (S.known.includes(k)) {
+        const d = val - cur; cls += ` nb known ${d > 0 ? 'up' : 'down'}`; inner = `${val}<small>${d > 0 ? '+' : ''}${d}</small>`; attr = ` data-act="hl2-move" data-r="${r}" data-c="${c}"`;
+        if (T && S.phase === 'choose' && improve && best.k === k) cls += ' pulse';
+      } else {
+        cls += ' nb'; inner = '?'; attr = ` data-act="hl2-eval" data-r="${r}" data-c="${c}"`;
+        if (T && S.phase === 'look' && firstUnknown && firstUnknown.k === k) cls += ' pulse';
+      }
+      inner += `<span class="arrow">${p.dir}</span>`;
+    } else cls += ' fog';
+    if (!here && !S.revealed && trail.has(k)) inner += '<i class="dot"></i>';
+    if (r === S.start[0] && c === S.start[1]) inner += '<span class="tag2" style="left:3px;right:auto;color:var(--good)">inicio</span>';
+    cells += `<${tag} class="${cls}"${attr}${style}>${inner}</${tag}>`;
+  }
+  const steps = [['look', 'Evaluar vecinos'], ['choose', 'Elegir el mejor'], ['move', 'Moverte o parar']];
+  const stp = `<div class="stepper">${steps.map(([k, l], i) => `${i ? '<span class="arr">→</span>' : ''}<span class="st${(S.phase === k || (k === 'move' && S.stopped)) ? ' on' : ''}"><b>${i + 1}</b>${l}</span>`).join('')}</div>`;
+  let ctl;
+  if (S.done) {
+    const stars = lv.restart ? starsFor(Math.max(0, S.restarts - 2) + (S.restarts > 4 ? 1 : 0)) : starsFor(S.mistakes); finishLevel(lv.guided ? 0 : stars); const nxt = nextLevelId();
+    ctl = `<div class="panel result"><h2>Nivel completado</h2>${lv.guided ? '<h3>Tutorial superado ✓</h3>' : `<h3><span class="stars">${starStr(stars)}</span> · ${S.mistakes} errores · ${S.evals} evaluaciones${lv.restart ? ` · ${S.restarts} reinicios` : ''}</h3>`}
+      <p class="muted">Hill Climbing solo mira a sus vecinos directos y no guarda el camino: puede quedarse en un máximo local. El reinicio aleatorio ayuda a escapar.</p>
+      <div class="btns">${endBtns(nxt)}</div></div>`;
+  } else if (S.stopped && lv.question) ctl = `<div class="panel">${stp}<p class="instr">Se levantó la niebla. La casilla donde te detuviste es:</p><div class="btns"><button class="btn" data-act="hl-ans" data-v="1">Máximo global</button><button class="btn" data-act="hl-ans" data-v="0">Máximo local</button></div></div>`;
+  else if (S.stopped) ctl = `<div class="panel"><h2>Atrapado en un máximo local</h2><p class="instr">Hill Climbing no puede salir solo: todos sus vecinos son más bajos. Un reinicio aleatorio te coloca en otra casilla.</p><button class="btn primary${T ? ' pulse' : ''}" data-act="hl-rand">Reinicio aleatorio</button></div>`;
+  else if (S.phase === 'look') ctl = `<div class="panel">${stp}<p class="instr"><b>Evalúa a tus vecinos.</b> Haz clic en cada casilla con <b>?</b> que rodea tu posición (↑ ↓ ← →) para ver su altura. Tu casilla mide <b>${cur}</b>. Faltan ${nb.length - S.known.length} por evaluar.</p></div>`;
+  else ctl = `<div class="panel">${stp}<p class="instr"><b>Ya conoces a todos tus vecinos.</b> Haz clic en el más alto para subir hasta allí, o pulsa Parar si ninguno es más alto que tu casilla (<b>${cur}</b>).</p><button class="btn${T && !improve ? ' pulse' : ''}" data-act="hl-stop">■ Parar: ningún vecino mejora</button></div>`;
+  const coach = lv.guided && !S.done ? `<div class="coach"><b class="t">Tutor</b>${S.stopped ? 'Mira el terreno sin niebla y responde.' : S.phase === 'look' ? 'Haz clic en las casillas con ? para descubrir cuánto miden tus vecinos. Hill Climbing no ve más allá.' : improve ? `El vecino más alto mide ${S.v[best.r][best.c]} y tú estás en ${cur}: muévete hacia él.` : 'Ningún vecino es más alto que tú. Pulsa Parar.'}</div>` : '';
+  const stats = lv.guided ? '<span class="pill">tutorial guiado</span>' : `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">evaluaciones ${S.evals}</span>${lv.restart ? `<span class="pill">reinicios ${S.restarts}</span>` : ''}`;
+  return `${topbar((lv.free ? 'Partida aleatoria · ' : 'Hill Climbing · ') + lv.name, 'Sube hasta el punto más alto', stats)}
+  <div class="game"><div class="stack"><div class="panel"><div class="hgrid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div>
+    <div class="legend"><span><b>tú</b>: tu casilla (azul)</span><span><b>?</b>: vecino sin evaluar</span><span style="color:var(--good)"><b>+</b>: vecino más alto</span><span style="color:var(--bad)"><b>−</b>: vecino más bajo</span><span>punto: camino recorrido</span></div>
+    <p class="muted" style="margin:6px 0 0;font-size:0.85rem">El número de cada casilla es su altura. La meta es llegar a la casilla más alta de todo el terreno, pero la niebla solo deja ver a tus vecinos.</p></div></div>
+  <div class="stack"><div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${coach}${S.done ? demoize(ctl, S) : ctl}
+    ${!lv.guided && !S.done ? hintPanel(game) : ''}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
 }
 /* ---- 8-puzzle ---- */
-function boardHTML(s, hk) {
+function boardHTML(s, hk, flip) {
   return s.map((v, i) => {
     if (!v) return '<div class="tile hole"></div>';
     const d = tdist(v, i); let cls = 'tile', sub = '';
     if (hk === 'h1' && v !== GOAL[i]) cls += ' wrong';
     if (hk === 'h2') { sub = `<sub>${d}</sub>`; if (d > 0) cls += ' far wrong'; }
-    return `<div class="${cls}">${v}${sub}</div>`;
+    return `<div class="${cls}"${flip ? ` data-flip="tile-${v}"` : ''}>${v}${sub}</div>`;
   }).join('');
 }
 function distTable(dist) {
   const n = Object.keys(dist);
   return `<div style="overflow-x:auto"><table class="dtab"><tr><th></th>${n.map(c => `<th>${c}</th>`).join('')}</tr>${n.map(r => `<tr><th>${r}</th>${n.map(c => `<td>${r === c ? '-' : dist[r][c]}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
-const routeHTML = (r, dist) => `<div class="route">${r.map((c, i) => `${i ? `<span class="leg">→${dist ? `<small>${dist[r[i - 1]][c]}</small>` : ''}</span>` : ''}<span class="city">${c}</span>`).join('')}</div>`;
+const routeHTML = (r, dist, flip) => `<div class="route">${r.map((c, i) => `${i ? `<span class="leg">→${dist ? `<small>${dist[r[i - 1]][c]}</small>` : ''}</span>` : ''}<span class="city"${flip ? ` data-flip="city-${c}${c === 'A' ? (i === 0 ? 's' : 'e') : ''}"` : ''}>${c}</span>`).join('')}</div>`;
 function renderPuz() {
   const game = ui.game, S = game.S, lv = ui.lv, route = S.kind === 'route', nbs = game.nbs(S.s), hs = nbs.map(n => game.h(n.s));
   const unit = route ? ' km' : '', showVals = S.showHint || S.showAll, hk = route ? null : S.hk;
@@ -966,12 +1261,12 @@ function renderPuz() {
   else body = `<div class="panel"><h2>Vecinos ${route ? '(se intercambian dos ciudades)' : '(se mueve el hueco)'}</h2><p>Suma lo que ves en cada vecino y haz clic en el de menor ${route ? 'distancia' : S.hn}, o detente si ninguno mejora.</p><div class="nbs">${nbs.map((n, i) => `<button class="nb" data-act="choose" data-i="${i}">${route ? routeHTML(n.s, lv.dist) : `<div class="board mini">${boardHTML(n.s, hk)}</div>`}<div>${route ? 'intercambio ' + n.name : `hueco ${n.name}<br>(ficha ${n.moved})`}</div>${showVals ? `<div class="hnum">${route ? '' : S.hn + ' = '}${hs[i]}${unit}</div>` : ''}</button>`).join('')}</div>
       <div class="btns" style="margin-top:10px"><button class="btn" data-act="pstop">Detenerme: ningún vecino mejora</button><button class="btn sm" data-act="toggle-h" aria-pressed="${S.showAll}">${S.showAll ? 'Ocultar' : 'Mostrar'} el valor de cada vecino (modo estudio)</button></div></div>`;
   const stateBox = route
-    ? `<h2>Ruta actual (el número sobre cada flecha es el tramo)</h2>${routeHTML(S.s, lv.dist)}<p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? 'distancia = ?' : 'distancia = ' + game.cur() + ' km'}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Distancias (km)</h2>${distTable(lv.dist)}`
-    : `<h2>Estado actual</h2><div class="board">${boardHTML(S.s, hk)}</div><p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? S.hn + ' = ?' : S.hn + ' = ' + game.cur()}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Meta (h = 0)</h2><div class="board mini">${GOAL.map(v => `<div class="tile${v ? '' : ' hole'}">${v || ''}</div>`).join('')}</div>`;
+    ? `<h2>Ruta actual (el número sobre cada flecha es el tramo)</h2>${routeHTML(S.s, lv.dist, true)}<p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? 'distancia = ?' : 'distancia = ' + game.cur() + ' km'}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Distancias (km)</h2>${distTable(lv.dist)}`
+    : `<h2>Estado actual</h2><div class="board">${boardHTML(S.s, hk, true)}</div><p class="mono" style="margin-top:8px;font-size:1.3rem;font-weight:700">${S.phase === 'ask' ? S.hn + ' = ?' : S.hn + ' = ' + game.cur()}</p>${S.phase === 'ask' ? '' : `<p class="formula">${game.formula()}</p>`}<h2 style="margin-top:10px">Meta (h = 0)</h2><div class="board mini">${GOAL.map(v => `<div class="tile${v ? '' : ' hole'}">${v || ''}</div>`).join('')}</div>`;
   return `${topbar((lv.free ? 'Partida aleatoria · ' : 'Hill Climbing · ') + lv.name, route ? 'Ruta de ciudades' : '8-puzzle', `<span class="pill${S.mistakes ? ' err' : ''}">errores ${S.mistakes}</span><span class="pill">pistas ${S.hints}</span><span class="pill">movimientos ${S.moves}</span>${lv.free ? `<span class="pill">reinicios ${S.restarts}</span>` : ''}`)}
   <div class="game"><div class="panel">${stateBox}<p class="muted" style="font-size:0.85rem;margin:8px 0 0">Historial de ${route ? 'km' : S.hn}: ${S.phase === 'ask' ? '—' : S.hist.join(' → ')}. ${route ? 'Meta: la ruta circular más corta.' : 'Cada movimiento cuesta 1.'}</p></div>
-  <div class="stack"><div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${body}
-    ${!S.done ? hintPanel(game) : ''}<div class="btns"><button class="btn sm" data-act="retry">Reiniciar nivel</button></div></div></div>`;
+  <div class="stack"><div class="fb ${S.fb.t}" role="status">${S.fb.m}</div>${S.done ? demoize(body, S) : body}
+    ${!S.done ? hintPanel(game) : ''}<div class="btns">${demoBtn()}<button class="btn sm" data-act="retry">${retryLabel()}</button></div></div></div>`;
 }
 /* ---- examen ---- */
 const QBANK = [
@@ -1017,19 +1312,20 @@ function renderQuiz() {
 function render() {
   const f = { home: renderHome, intro: renderIntro, play: renderPlay, struct: renderStruct, sandbox: renderSandbox, land: renderLand, puz: renderPuz, quiz: renderQuiz }[ui.screen];
   app.innerHTML = f();
+  if (ui.screen === 'intro') startIntroAnim(); else stopIntro();
 }
 
 /* =====================================================================
    Acciones
    ===================================================================== */
-function act(a, d) {
+function doAct(a, d) {
   const g = ui.game;
   switch (a) {
     case 'home': ui.screen = 'home'; break;
     case 'level': startLevel(d.id); return;
     case 'intro-prev': ui.intro = Math.max(0, ui.intro - 1); break;
     case 'intro-next': { const w = WORLDS.find(x => x.id === ui.lv.w); if (ui.intro >= w.intro.length - 1) return startLevel(ui.lv.id, true); ui.intro++; break; }
-    case 'retry': if (ui.lv.free) launch(ui.lv); else startLevel(ui.lv.id, true); return;
+    case 'retry': if (ui.lv.free) launch(makeFree(ui.lv.sel, ui.lv.mapKey)); else startLevel(ui.lv.id, true); return;
     case 'free-algo': ui.free.algo = d.v; ui.free.board = d.v === 'hc' ? 'land' : (ui.free.board === 'grid' ? 'grid' : 'graph'); break;
     case 'free-board': ui.free.board = d.v; break;
     case 'free-new': launch(makeFree(ui.free)); return;
@@ -1037,6 +1333,7 @@ function act(a, d) {
     case 'hint2': useHint(2); break;
     case 'hint3': useHint(3); break;
     case 'prand': g.rand(); break;
+    case 'demo': if (demo.on) stopDemo(); else { startDemo(); return; } break;
     case 'toggle-h': g.S.showAll = !g.S.showAll; break;
     case 'sb-pop': sbPopAuto(); break;
     case 'next': { const n = nextLevelId(); if (n) startLevel(n); else ui.screen = 'home'; break; }
@@ -1045,7 +1342,8 @@ function act(a, d) {
     case 'push': g.push(d.n); break;
     case 'finish': g.finish(); break;
     case 'hint': g.hint(); break;
-    case 'hl-move': g.move(+d.d); break;
+    case 'hl2-eval': g.evaluate(+d.r, +d.c); break;
+    case 'hl2-move': g.move(+d.r, +d.c); break;
     case 'hl-stop': g.stop(); break;
     case 'hl-ans': g.answer(d.v === '1'); break;
     case 'hl-rand': g.rand(); break;
@@ -1053,7 +1351,7 @@ function act(a, d) {
     case 'choose': g.choose(+d.i); break;
     case 'pstop': g.stop(); break;
     case 'sb-type': ui.sb.type = d.t; ui.sb.items = []; ui.sb.out = []; ui.sb.fb = { t: 'info', m: `Cambiaste a ${STRUCT_NAME[d.t]}. Mete elementos y sácalos.` }; break;
-    case 'sb-push': { const sb = ui.sb; sb.items.push({ n: String.fromCharCode(65 + sb.n % 26), g: 1 + rnd(9) }); sb.n++; sb.fb = { t: 'info', m: 'Metido. Meter siempre agrega al final (derecha / tope).' }; break; }
+    case 'sb-push': { const sb = ui.sb; sb.items.push({ id: ++sb.uid, n: String.fromCharCode(65 + sb.n % 26), g: 1 + rnd(9) }); sb.n++; sb.fb = { t: 'info', m: 'Metido. Meter siempre agrega al final (derecha / tope).' }; break; }
     case 'sb-clear': ui.sb.items = []; ui.sb.out = []; ui.sb.n = 0; break;
     case 'sb-done': saveLevel('e0', 0); ui.screen = 'home'; break;
     case 'qpick': { const Q = ui.quiz; if (Q.picked === null) { Q.picked = +d.i; if (Q.picked === Q.qs[Q.i].a) Q.score++; } break; }
@@ -1079,7 +1377,8 @@ function sbPop(i) {
 app.addEventListener('click', e => {
   const t = e.target.closest ? e.target.closest('[data-act]') : null;
   if (!t || t.disabled) return;
-  act(t.dataset.act, t.dataset);
+  if (demo.on && !['demo', 'home'].includes(t.dataset.act)) return;
+  act(t.dataset.act, Object.assign({}, t.dataset), t.getBoundingClientRect());
 });
 window.__maestro = { makeFree, launch, makeGrid, makeRoute, act, ui, SearchGame, bot, LEVELS, LandGame, PuzGame, StructGame, makeQuiz, render, startLevel };
 render();
